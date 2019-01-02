@@ -1,0 +1,16 @@
+[package]
+name = "noise"
+version = "0.1.0"
+authors = ["John Newby <john@newby.org>"]
+edition = "2018"
+
+[dependencies]
+base58check = "0.0.1"
+byteorder = "*"
+noise-protocol = "0.0.5"
+
+noise-rust-crypto = "0.0.5"
+lazy_static = "1.2.0"
+regex = "*"
+rlp = "0.3.0"
+snow = "0.4.0"
