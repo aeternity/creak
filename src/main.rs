@@ -34,6 +34,7 @@ fn main() {
 
     let mut pk = base58check::FromBase58Check::from_base58check(node.pub_key.as_str()).unwrap().1;
     pk.insert(0, base58check::FromBase58Check::from_base58check(node.pub_key.as_str()).unwrap().0);
+    println!("{:?}", pk);
 
     println!("{}", node.pub_key);
     let mut noise = builder
@@ -45,36 +46,34 @@ fn main() {
     println!("connected...");
     /* handshake...
      */
-    // -> ax
-    println!("a");
-//    std::thread::sleep_ms(2000);
+    // <- s
+    println!("s");
     let len = noise.write_message(&[], &mut buf).unwrap();
     send(&mut stream, &buf[..len]);
 
-    // <- e, es
+    // -> e, es
     println!("e,es");
-//    std::thread::sleep_ms(2000);
     noise.read_message(&recv(&mut stream).unwrap(), &mut buf).unwrap();
-    // -> e, ee
-    let len = noise.write_message(&[], &mut buf).unwrap();
+
+    // <- e, ee
     println!("e,ee");
-//    std::thread::sleep_ms(2000);
+    let len = noise.write_message(&[], &mut buf).unwrap();
     send(&mut stream, &buf[..len]);
+
+       // -> s, se
+//    println!("s,se");
+//    noise.read_message(&recv(&mut stream).unwrap(), &mut buf).unwrap();
+
+    // -> e, ee
+//    let len = noise.write_message(&[], &mut buf).unwrap();
+//    send(&mut stream, &buf[..len]);
 
        // <- s, se
-    noise.read_message(&recv(&mut stream).unwrap(), &mut buf).unwrap();
+//    noise.read_message(&recv(&mut stream).unwrap(), &mut buf).unwrap();
 
-    // -> e, ee
-    let len = noise.write_message(&[], &mut buf).unwrap();
-    send(&mut stream, &buf[..len]);
-
+    println!("Entering transport mode");
     let mut noise = noise.into_transport_mode().unwrap();
     println!("session established...");
-
-
-
-
-
     let mut buf = vec![0u8; 65535];
     let ping = messages::Ping::new(3015, 0, gen_hash.clone(), 0, gen_hash, true, Vec::new());
     let mut rlp = ping.rlp();
