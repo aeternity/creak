@@ -31,12 +31,15 @@ fn main() {
     let gen_hash = "pbtwgLrNu23k9PA6XCZnUbtsvEFeQGgavY4FS2do3QP8kcp2z".from_base58check().unwrap().1;
     let builder: Builder = Builder::new(PARAMS.clone());
     let keypair = builder.generate_keypair().unwrap();
-    
+
+    let mut pk = base58check::FromBase58Check::from_base58check(node.pub_key.as_str()).unwrap().1;
+    pk.insert(0, base58check::FromBase58Check::from_base58check(node.pub_key.as_str()).unwrap().0);
+
     println!("{}", node.pub_key);
     let mut noise = builder
        .prologue(&prologue)
         .local_private_key(&keypair.private)
-        .remote_public_key(&base58check::FromBase58Check::from_base58check(node.pub_key.as_str()).unwrap().1) 
+        .remote_public_key(&pk)
         .build_initiator().unwrap();
     let mut stream = TcpStream::connect((node.address, node.port)).unwrap();
     println!("connected...");
@@ -67,11 +70,11 @@ fn main() {
 
     let mut noise = noise.into_transport_mode().unwrap();
     println!("session established...");
- 
 
 
 
-    
+
+
     let mut buf = vec![0u8; 65535];
     let ping = messages::Ping::new(3015, 0, gen_hash.clone(), 0, gen_hash, true, Vec::new());
     let mut rlp = ping.rlp();
