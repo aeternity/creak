@@ -44,39 +44,20 @@ fn main() {
         .build_initiator().unwrap();
     let mut stream = TcpStream::connect((node.address, node.port)).unwrap();
     println!("connected...");
-    /* handshake...
-     */
-    // <- s
-    println!("s");
-    let len = noise.write_message(&[], &mut buf).unwrap();
-    send(&mut stream, &buf[..len]);
 
-    // -> e, es
-    println!("e,es");
-    noise.read_message(&recv(&mut stream).unwrap(), &mut buf).unwrap();
-
-    // <- e, ee
-    println!("e,ee");
-    let len = noise.write_message(&[], &mut buf).unwrap();
-    send(&mut stream, &buf[..len]);
-
-       // -> s, se
-//    println!("s,se");
-//    noise.read_message(&recv(&mut stream).unwrap(), &mut buf).unwrap();
-
-    // -> e, ee
-//    let len = noise.write_message(&[], &mut buf).unwrap();
-//    send(&mut stream, &buf[..len]);
-
-       // <- s, se
-//    noise.read_message(&recv(&mut stream).unwrap(), &mut buf).unwrap();
-
+    loop {
+        if noise.is_handshake_finished() { break; }
+        let len = noise.write_message(&[], &mut buf).unwrap();
+        send(&mut stream, &buf[..len]);
+        if noise.is_handshake_finished() { break; }
+        noise.read_message(&recv(&mut stream).unwrap(), &mut buf).unwrap();
+    }
     println!("Entering transport mode");
     let mut noise = noise.into_transport_mode().unwrap();
     println!("session established...");
     let mut buf = vec![0u8; 65535];
     let ping = messages::Ping::new(3015, 0, gen_hash.clone(), 0, gen_hash, true, Vec::new());
-    let mut rlp = ping.rlp();
+    let mut rlp = ping.rlp().unwrap();
     println!("{:#?}", rlp);
     stream.write_all(&rlp).unwrap();
     loop {
@@ -85,10 +66,13 @@ fn main() {
             Ok(x) => {
                 match noise.read_message(&x, &mut buf) {
                     Ok(x) => println!("{:?}", buf),
-                    Err(x) => println!("Error {}", x),
+                    Err(x) => {
+                        println!("Noise error {}", x);
+                        break;
+                    },
                 };
             },
-            Err(x) => println!("Error {}", x),
+            Err(x) => println!("TCP error {}", x),
         };
     }
 
