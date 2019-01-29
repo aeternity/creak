@@ -59,7 +59,9 @@ fn main() {
     let ping = messages::Ping::new(3015, 0, gen_hash.clone(), 0, gen_hash, true, Vec::new());
     let mut rlp = ping.rlp().unwrap();
     println!("{:#?}", rlp);
-    stream.write_all(&rlp).unwrap();
+    let len = noise.write_message(&rlp, &mut buf).unwrap();
+    println!("{:?}, {}", buf, len);
+    send(&mut stream, &mut buf[..len]);
     loop {
         let msg = recv(&mut stream);
         match msg {

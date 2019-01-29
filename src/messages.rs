@@ -41,7 +41,7 @@ impl Ping {
             append(&self.genesis_hash).
             append(&self.difficulty).
             append(&self.top_hash).
-            append(if self.sync_allowed { &1u16} else { &0u16}).
+            append(if self.sync_allowed { &1u8} else { &0u8}).
             append(&self.peers);
         Ok(stream.out())
     }
