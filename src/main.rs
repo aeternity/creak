@@ -28,8 +28,9 @@ lazy_static! {
 fn main() {
     let mut buf = vec![0u8; 65535];
     let prologue: [u8;50] = [0,0,0,0,0,0,0,1,108,21,218,110,191,175,2,120,254,175,77,241,176,241,169,130,85,7,174,123,154,73,75,195,76,145,113,63,56,221,87,131,97,101,95,109,97,105,110,110,101,116];
-    let node = aenode::Aenode::new(
-        &String::from("aenode://pp_2kzKvxEg9NbBXn6krSeNec8kSeiJy8GXxnoTanX2zr1ffABvqd@192.168.111.81:3015"))
+    let args: Vec<String> = std::env::args().collect();
+    let node = aenode::Aenode::new(&args[1])
+        //&String::from("aenode://pp_2kzKvxEg9NbBXn6krSeNec8kSeiJy8GXxnoTanX2zr1ffABvqd@192.168.111.81:3015"))
         .unwrap();
     let mut gen_hash = "pbtwgLrNu23k9PA6XCZnUbtsvEFeQGgavY4FS2do3QP8kcp2z".from_base58check().unwrap().1;
     gen_hash.insert(0, "pbtwgLrNu23k9PA6XCZnUbtsvEFeQGgavY4FS2do3QP8kcp2z".from_base58check().unwrap().0);
