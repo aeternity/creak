@@ -48,7 +48,7 @@ Object :: byte_array - an object of type Type if Result is true.
 */
 fn handle_p2p_response(msg_data: &Rlp) -> Result<(), RlpError>
 {
-
+    println!("p2p_response: {:?}", msg_data.as_raw());
     Ok(())
 }
 
@@ -92,13 +92,16 @@ pub fn handle_txs(msg_data: &Rlp) -> Result<(), RlpError>
 
     let version: &[u8] = msg_data.at(0)?.data()?;
     println!("Version: {:?}",version);
-    let payload: Rlp = msg_data.at(1)?;
-    println!("Payload is {:?}", payload);
-    println!("TXs: {:?}", payload.item_count().unwrap());
-    println!("Raw tx: {:?}", payload.as_raw());
-    let tx = Rlp::new(payload.at(0).unwrap().as_raw());
-    println!("hex: {}", hex::encode(&tx.as_raw()));
-    println!("TX is {:?}", tx.as_raw());
+    let txs: Rlp = msg_data.at(1)?;
+    println!("Txs are {:?}", txs);
+    for i in 0 .. txs.item_count().unwrap() {
+        let stx_raw = txs.at(i).unwrap();
+        let stx = Rlp::new(stx_raw.as_raw());
+        let tx_raw = stx.at(3).unwrap();
+        let tx = Rlp::new(tx_raw.as_raw());
+        println!("Payload is {:?}", tx.at(8).unwrap());
+    }
+
     Ok(())
 }
 
@@ -167,4 +170,5 @@ impl Ping {
         println!("{:?}", v);
         Ok(v)
     }
+
 }
