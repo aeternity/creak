@@ -99,7 +99,12 @@ A normal micro block is serialized. A light micro block is serialized using aec_
 */
 fn handle_micro_block(msg_data: &Rlp) -> Result<(), RlpError>
 {
-
+    let _version: u8 = msg_data.val_at(0)?;
+    let _data = msg_data.at(1)?.data()?;
+    let payload = &rlp::Rlp::new(&_data);
+    let _light: u8 = msg_data.val_at(2)?;
+    let mb = MicroBlockHeader::new_from_byte_array(&payload.at(2)?.data()?)?;
+    println!("{}", mb.to_string()?);
     Ok(())
 }
 
@@ -107,6 +112,7 @@ fn handle_micro_block(msg_data: &Rlp) -> Result<(), RlpError>
 fn test_handle_micro_block() {
     let msg_data = include!("../data/micro-block.rs");
     display_message(&msg_data).unwrap();
+    handle_micro_block(&msg_data).unwrap();
     println!("Done");
 }
 
@@ -136,12 +142,13 @@ fn handle_key_block(binary: &[u8]) -> Result<(), RlpError>
     Ok(())
 }
 
+/*
 #[test]
 fn test_handle_keyblocks() {
     let msg_data = include!("../data/key-block.rs");
     handle_key_blocks(&msg_data).unwrap();
 }
-
+*/
 /*
 
 Message is RLP encoded, fields:
@@ -185,6 +192,84 @@ pub fn mangle_rlp(data: &Vec<u8>) -> Vec<u8>{
             *x
         }
     }).collect()
+}
+
+pub struct MicroBlockHeader {
+    version: u32,
+    tags: [u8;4],
+    height: u64,
+    prev_hash: [u8;32],
+    prev_key_hash: [u8;32],
+    state_hash: [u8;32],
+    txs_hash: [u8;32],
+    time: u64,
+    fraud_hash: Option<[u8;32]>,
+    signature: [u8;64],
+}
+
+/*
+Fieldname	Size (bytes)
+version	32 bits
+micro_tag	1 bit
+has_fraud	1 bit
+unused_flags	30 bits (all set to 0)
+height	8
+prev_hash	32
+prev_key_hash	32
+state_hash	32
+txs_hash	32
+time	8
+fraud_hash	0 or 32
+signature	64
+*/
+impl MicroBlockHeader {
+    fn new_from_byte_array(bytes: &[u8]) -> Result<MicroBlockHeader, RlpError>
+    {
+        println!("new mb from bytes: {:?}", bytes);
+
+        let bytes = bytes.clone();
+        let flags = array_ref![bytes,4,1][0];
+        let micro = flags & 0b10000000u8;
+        let has_fraud = flags & 0b01000000u8 != 0;
+
+        Ok(MicroBlockHeader {
+            version: <&[u8]>::read_u32::<BigEndian>(&mut (&bytes[0..4]).clone())?,
+            tags: array_ref![bytes,4,4].clone(),
+            height: <&[u8]>::read_u64::<BigEndian>(&mut (&bytes[8..16]).clone())?,
+            prev_hash: array_ref![bytes,16,32].clone(),
+            prev_key_hash: array_ref![bytes,48,32].clone(),
+            state_hash: array_ref![bytes, 80, 32].clone(),
+            txs_hash: array_ref![bytes, 112, 32].clone(),
+            time: <&[u8]>::read_u64::<BigEndian>(&mut (&bytes[144..152]).clone())?,
+            fraud_hash: if has_fraud {
+                Some(array_ref![bytes, 152, 32].clone())
+            } else {
+                None
+            },
+            signature: if has_fraud {
+                array_ref![bytes, 184, 64].clone()
+            } else {
+                array_ref![bytes, 152, 64].clone()
+            },
+        })
+    }
+
+    pub fn to_string(&self) -> Result<String, RlpError>
+    {
+        Ok(format!(
+            "version: {} flags: {:?} height: {} prev_hash: {:?} prev_key_hash: {:?} state_hash: {:?} \
+             txs_hash: {:?} time: {} fraud_hash {:?}",
+            self.version,
+            self.tags,
+            self.height,
+            self.prev_hash,
+            self.prev_key_hash,
+            self.state_hash,
+            self.txs_hash,
+            self.time,
+            self.fraud_hash,
+        ))
+    }
 }
 
 pub struct KeyBlock {
