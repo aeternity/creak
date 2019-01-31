@@ -26,17 +26,41 @@ const MsgTxPoolSyncGet: u16 = 22;
 const MsgTxPoolSyncFinish: u16 = 23;
 const MsgClose: u16 = 127;
 
+fn display_message(msg_data: &Rlp) -> Result<(), RlpError>
+{
+    let mut i = msg_data.iter();
+    loop {
+        let ele;
+        match i.next() {
+            Some(x) => ele = x,
+            None => break,
+        };
+        match ele.prototype().unwrap(){
+            rlp::Prototype::Data(size) => println!("Data, size is {}", size),
+            rlp::Prototype::List(count) => println!("List, length is {}", count),
+            _ => println!("Something else"),
+        };
+
+    }
+    Ok(())
+}
+
+
 pub fn handle_message(msg_type: u16, msg_data: &Rlp) -> Result<(), RlpError>
 {
+    display_message(&msg_data);
     match msg_type {
         MsgP2pResponse => handle_p2p_response(&msg_data)?,
         MsgTxPoolSyncInit => handle_tx_pool_sync_init(&msg_data)?,
         MsgTxs => handle_txs(&msg_data)?,
+        MsgKeyBlock => handle_keyblock(&msg_data)?,
         MsgMicroBlock => handle_micro_block(&msg_data)?,
         _ => (),
     }
     Ok(())
 }
+
+
 
 /*
 Message is RLP encoded, fields:
@@ -77,6 +101,34 @@ fn handle_micro_block(msg_data: &Rlp) -> Result<(), RlpError>
     // println!("TXs: {:?}", payload.item_count()?);
     // let tx = Rlp::new(payload.at(0)?.as_raw());
     // println!("TX tag is {:?}", tx.at(0)?);
+    Ok(())
+}
+
+/*
+ *
+Message is RLP encoded, fields:
+
+KeyBlock :: byte_array - Serialized key block
+The key block is serialized.
+*/
+fn handle_keyblock(msg_data: &Rlp) -> Result<(), RlpError>
+{
+    let version: u32 = msg_data.val_at(0)?;
+    //    let flags: u32 = msg_data.val_at(1).unwrap();
+    let mut i = msg_data.iter();
+    loop {
+        let ele;
+        match i.next() {
+            Some(x) => ele = x,
+            None => break,
+        };
+        match ele.prototype().unwrap(){
+            rlp::Prototype::Data(size) => println!("Data, size is {}", size),
+            rlp::Prototype::List(count) => println!("List, length is {}", count),
+            _ => println!("Something else"),
+        };
+
+    }
     Ok(())
 }
 
