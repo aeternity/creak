@@ -1,5 +1,5 @@
 use byteorder::*;
-use rlp::{Rlp, RlpStream, };
+use rlp::{Rlp, RlpStream};
 
 use serde_rlp::ser::to_bytes;
 
@@ -26,8 +26,7 @@ const MsgTxPoolSyncGet: u16 = 22;
 const MsgTxPoolSyncFinish: u16 = 23;
 const MsgClose: u16 = 127;
 
-fn display_message(msg_data: &Rlp) -> Result<(), RlpError>
-{
+fn display_message(msg_data: &Rlp) -> Result<(), RlpError> {
     println!("Starting message with {} elements:", msg_data.item_count()?);
     let mut i = msg_data.iter();
     loop {
@@ -36,20 +35,18 @@ fn display_message(msg_data: &Rlp) -> Result<(), RlpError>
             Some(x) => ele = x,
             None => break,
         };
-        match ele.prototype().unwrap(){
-            rlp::Prototype::Data(size) => println!("Data, size is {}", size),
+        match ele.prototype().unwrap() {
+            rlp::Prototype::Data(size) => println!("Data, size is {} content is {:?}",
+                                                   size, ele.data().unwrap()),
             rlp::Prototype::List(count) => println!("List, length is {}", count),
             _ => println!("Something else"),
         };
-
     }
     println!("End message");
     Ok(())
 }
 
-
-pub fn handle_message(msg_type: u16, msg_data: &Rlp) -> Result<(), RlpError>
-{
+pub fn handle_message(msg_type: u16, msg_data: &Rlp) -> Result<(), RlpError> {
     display_message(&msg_data);
     match msg_type {
         MsgP2pResponse => handle_p2p_response(&msg_data)?,
@@ -62,8 +59,6 @@ pub fn handle_message(msg_type: u16, msg_data: &Rlp) -> Result<(), RlpError>
     Ok(())
 }
 
-
-
 /*
 Message is RLP encoded, fields:
 
@@ -72,21 +67,25 @@ Type :: int - the type of the response
 Reason :: byte_array - Human readable (UTF8) reason (only set if Result is false)*
 Object :: byte_array - an object of type Type if Result is true.
 */
-fn handle_p2p_response(msg_data: &Rlp) -> Result<(), RlpError>
-{
-    let result: u8 = msg_data.val_at(0)?;
-    let _type: u8 = msg_data.val_at(1)?;
-    let reason: Vec<u8> = msg_data.val_at(2)?;
-    let object: Vec<u8> = msg_data.val_at(3)?;
-    println!("p2p_response: {:?}", msg_data.as_raw());
+fn handle_p2p_response(msg_data: &Rlp) -> Result<(), RlpError> {
+    let version: u8 = msg_data.val_at(0)?;
+    let result: u8 = msg_data.val_at(1)?;
+    let _type: u8 = msg_data.val_at(2)?;
+    let reason: Vec<u8> = msg_data.val_at(3)?;
+    let object: Vec<u8> = msg_data.val_at(4)?;
+    println!(
+        "p2p_response: version: {} result: {} type: {}, reason {:?} object: {:?}",
+        version, result, _type, reason, object
+    );
+    let r = rlp::Rlp::new(&object);
+    display_message(&r);
     Ok(())
 }
 
 /*
 Message has no body.
 */
-fn handle_tx_pool_sync_init(msg_data: &Rlp) -> Result<(), RlpError>
-{
+fn handle_tx_pool_sync_init(msg_data: &Rlp) -> Result<(), RlpError> {
     Ok(())
 }
 
@@ -97,8 +96,7 @@ MicroBlock :: byte_array - Serialized micro block
 Light :: bool - flag if micro block is light or normal
 A normal micro block is serialized. A light micro block is serialized using aec_peer_connection:serialize_light_micro_block/1 - in effect replacing the list of serialized signed transactions with a list of transaction hashes.
 */
-fn handle_micro_block(msg_data: &Rlp) -> Result<(), RlpError>
-{
+fn handle_micro_block(msg_data: &Rlp) -> Result<(), RlpError> {
     let _version: u8 = msg_data.val_at(0)?;
     let _data = msg_data.at(1)?.data()?;
     let payload = &rlp::Rlp::new(&_data);
@@ -108,6 +106,7 @@ fn handle_micro_block(msg_data: &Rlp) -> Result<(), RlpError>
     Ok(())
 }
 
+/*
 #[test]
 fn test_handle_micro_block() {
     let msg_data = include!("../data/micro-block.rs");
@@ -115,6 +114,7 @@ fn test_handle_micro_block() {
     handle_micro_block(&msg_data).unwrap();
     println!("Done");
 }
+*/
 
 /*
  *
@@ -123,19 +123,17 @@ Message is RLP encoded, fields:
 KeyBlock :: byte_array - Serialized key block
 The key block is serialized.
 */
-fn handle_key_blocks(msg_data: &Rlp) -> Result<(), RlpError>
-{
+fn handle_key_blocks(msg_data: &Rlp) -> Result<(), RlpError> {
     assert!(msg_data.item_count()? % 2 == 0); // each KB is 2 nessages
-    for i in 0 .. (msg_data.item_count()? / 2) {
-        assert!(msg_data.val_at::<u16>(2*i)? == 1);
-        let data = msg_data.at(2*i + 1)?.data()?;
+    for i in 0..(msg_data.item_count()? / 2) {
+        assert!(msg_data.val_at::<u16>(2 * i)? == 1);
+        let data = msg_data.at(2 * i + 1)?.data()?;
         handle_key_block(&data)?
     }
     Ok(())
 }
 
-fn handle_key_block(binary: &[u8]) -> Result<(), RlpError>
-{
+fn handle_key_block(binary: &[u8]) -> Result<(), RlpError> {
     let kb = KeyBlock::new_from_byte_array(binary)?;
     println!("height: {}", kb.height);
     println!("{}", kb.to_string()?);
@@ -156,26 +154,34 @@ Message is RLP encoded, fields:
 Txs:: [byte_array]
 A signed transaction is serialized as a tagged and versioned signed transaction.
 */
-pub fn handle_txs(msg_data: &Rlp) -> Result<(), RlpError>
-{
-
+pub fn handle_txs(msg_data: &Rlp) -> Result<(), RlpError> {
     let version: &[u8] = msg_data.at(0)?.data()?;
-    println!("Version: {:?}",version);
+    println!("Version: {:?}", version);
     let txs: Rlp = msg_data.at(1)?;
     println!("Txs are {:?}", txs);
-    for i in 0 .. txs.item_count().unwrap() {
+    for i in 0..txs.item_count().unwrap() {
         let stx_raw = txs.at(i).unwrap();
         let stx = Rlp::new(stx_raw.as_raw());
         let tx_raw = stx.at(3).unwrap();
         let tx = Rlp::new(tx_raw.as_raw());
-        println!("Payload is {:?}", tx.at(8).unwrap());
     }
 
     Ok(())
 }
 
-pub fn bigend_u16(num: u16) -> Result<Vec<u8>, RlpError>
-{
+#[test]
+fn test_handle_txs() {
+    let txs = include!("../data/transactions.rs");
+    display_message(&txs);
+    let payload = rlp::Rlp::new(txs.at(1).unwrap().at(0).unwrap().data().unwrap());
+    display_message(&payload);
+    let unknown = rlp::Rlp::new(payload.at(3).unwrap().data().unwrap());
+    display_message(&unknown).unwrap();
+    let unknown2 = unknown.at(8).unwrap().data().unwrap();
+    println!("Payload is {}", String::from_utf8(unknown2.to_vec()).unwrap());
+}
+
+pub fn bigend_u16(num: u16) -> Result<Vec<u8>, RlpError> {
     let mut v = vec![];
     v.write_u16::<BigEndian>(num)?;
     Ok(v)
@@ -184,27 +190,23 @@ pub fn bigend_u16(num: u16) -> Result<Vec<u8>, RlpError>
 /*
  * æternity expects RLP w/ some changes from the Parity
  */
-pub fn mangle_rlp(data: &Vec<u8>) -> Vec<u8>{
-    data.iter().map(|x| {
-        if *x == 128 {
-            0
-        } else {
-            *x
-        }
-    }).collect()
+pub fn mangle_rlp(data: &Vec<u8>) -> Vec<u8> {
+    data.iter()
+        .map(|x| if *x == 128 { 0 } else { *x })
+        .collect()
 }
 
 pub struct MicroBlockHeader {
     version: u32,
-    tags: [u8;4],
+    tags: [u8; 4],
     height: u64,
-    prev_hash: [u8;32],
-    prev_key_hash: [u8;32],
-    state_hash: [u8;32],
-    txs_hash: [u8;32],
+    prev_hash: [u8; 32],
+    prev_key_hash: [u8; 32],
+    state_hash: [u8; 32],
+    txs_hash: [u8; 32],
     time: u64,
-    fraud_hash: Option<[u8;32]>,
-    signature: [u8;64],
+    fraud_hash: Option<[u8; 32]>,
+    signature: [u8; 64],
 }
 
 /*
@@ -223,21 +225,20 @@ fraud_hash	0 or 32
 signature	64
 */
 impl MicroBlockHeader {
-    fn new_from_byte_array(bytes: &[u8]) -> Result<MicroBlockHeader, RlpError>
-    {
+    fn new_from_byte_array(bytes: &[u8]) -> Result<MicroBlockHeader, RlpError> {
         println!("new mb from bytes: {:?}", bytes);
 
         let bytes = bytes.clone();
-        let flags = array_ref![bytes,4,1][0];
+        let flags = array_ref![bytes, 4, 1][0];
         let micro = flags & 0b10000000u8;
         let has_fraud = flags & 0b01000000u8 != 0;
 
         Ok(MicroBlockHeader {
             version: <&[u8]>::read_u32::<BigEndian>(&mut (&bytes[0..4]).clone())?,
-            tags: array_ref![bytes,4,4].clone(),
+            tags: array_ref![bytes, 4, 4].clone(),
             height: <&[u8]>::read_u64::<BigEndian>(&mut (&bytes[8..16]).clone())?,
-            prev_hash: array_ref![bytes,16,32].clone(),
-            prev_key_hash: array_ref![bytes,48,32].clone(),
+            prev_hash: array_ref![bytes, 16, 32].clone(),
+            prev_key_hash: array_ref![bytes, 48, 32].clone(),
             state_hash: array_ref![bytes, 80, 32].clone(),
             txs_hash: array_ref![bytes, 112, 32].clone(),
             time: <&[u8]>::read_u64::<BigEndian>(&mut (&bytes[144..152]).clone())?,
@@ -254,8 +255,7 @@ impl MicroBlockHeader {
         })
     }
 
-    pub fn to_string(&self) -> Result<String, RlpError>
-    {
+    pub fn to_string(&self) -> Result<String, RlpError> {
         Ok(format!(
             "version: {} flags: {:?} height: {} prev_hash: {:?} prev_key_hash: {:?} state_hash: {:?} \
              txs_hash: {:?} time: {} fraud_hash {:?}",
@@ -276,13 +276,13 @@ pub struct KeyBlock {
     version: u32,
     key_unused: u32,
     height: u64,
-    prev_hash: [u8;32],
-    prev_key_hash: [u8;32],
-    state_hash: [u8;32],
-    miner: [u8;32],
-    beneficiary: [u8;32],
+    prev_hash: [u8; 32],
+    prev_key_hash: [u8; 32],
+    state_hash: [u8; 32],
+    miner: [u8; 32],
+    beneficiary: [u8; 32],
     target: u32,
-    pow: [u8;168],
+    pow: [u8; 168],
     nonce: u64,
     time: u64,
 }
@@ -304,28 +304,26 @@ nonce	8
 time	8
 */
 impl KeyBlock {
-    fn new_from_byte_array(bytes: &[u8]) -> Result<KeyBlock, RlpError>
-    {
+    fn new_from_byte_array(bytes: &[u8]) -> Result<KeyBlock, RlpError> {
         println!("bytes: {:?} length {}", bytes, bytes.len());
         let bytes = bytes.clone();
         Ok(KeyBlock {
             version: <&[u8]>::read_u32::<BigEndian>(&mut (&bytes[0..4]).clone())?,
             key_unused: <&[u8]>::read_u32::<BigEndian>(&mut (&bytes[4..8]).clone())?,
             height: <&[u8]>::read_u64::<BigEndian>(&mut (&bytes[8..16]).clone())?,
-            prev_hash: array_ref![bytes,16,32].clone(),
-            prev_key_hash: array_ref![bytes,48,32].clone(),
+            prev_hash: array_ref![bytes, 16, 32].clone(),
+            prev_key_hash: array_ref![bytes, 48, 32].clone(),
             state_hash: array_ref![bytes, 80, 32].clone(),
             miner: array_ref![bytes, 112, 32].clone(),
             beneficiary: array_ref![bytes, 144, 32].clone(),
-            target:  <&[u8]>::read_u32::<BigEndian>(&mut (&bytes[176..180]).clone())?,
+            target: <&[u8]>::read_u32::<BigEndian>(&mut (&bytes[176..180]).clone())?,
             pow: array_ref![bytes, 180, 168].clone(),
             nonce: <&[u8]>::read_u64::<BigEndian>(&mut (&bytes[348..356]).clone())?,
             time: <&[u8]>::read_u64::<BigEndian>(&mut (&bytes[356..364]).clone())?,
         })
     }
 
-    pub fn to_string(&self) -> Result<String, RlpError>
-    {
+    pub fn to_string(&self) -> Result<String, RlpError> {
         Ok(format!(
             "version: {} flags: {} height: {} prev_hash: {:?} prev_key_hash: {:?} state_hash: {:?} \
              miner: {:?} beneficiary: {:?} target: {} pow: {:?} nonce: {} time: {}",
@@ -345,7 +343,7 @@ impl KeyBlock {
     }
 }
 
-#[derive(Debug,Serialize)]
+#[derive(Debug, Serialize)]
 pub struct Ping {
     version: u16,
     port: u16,
@@ -365,14 +363,23 @@ impl Ping {
         difficulty: u64,
         top_hash: Vec<u8>,
         sync_allowed: bool,
-        peers: Vec<u8>) -> Ping {
-        Ping{version: 1, port, share, genesis_hash, difficulty, top_hash,
-             sync_allowed: if sync_allowed { 1 } else { 0 }, peers}
+        peers: Vec<u8>,
+    ) -> Ping {
+        Ping {
+            version: 1,
+            port,
+            share,
+            genesis_hash,
+            difficulty,
+            top_hash,
+            sync_allowed: if sync_allowed { 1 } else { 0 },
+            peers,
+        }
     }
 
     pub fn rlp(&self) -> Result<Vec<u8>, Box<std::error::Error>> {
         let mut stream = RlpStream::new();
-        let peers: Vec<u8> = vec!();
+        let peers: Vec<u8> = vec![];
         stream.begin_list(8).
             append(&1u16). // version
             append(&self.port).
