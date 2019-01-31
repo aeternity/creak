@@ -28,6 +28,7 @@ const MsgClose: u16 = 127;
 
 fn display_message(msg_data: &Rlp) -> Result<(), RlpError>
 {
+    println!("Starting message with {} elements:", msg_data.item_count()?);
     let mut i = msg_data.iter();
     loop {
         let ele;
@@ -42,6 +43,7 @@ fn display_message(msg_data: &Rlp) -> Result<(), RlpError>
         };
 
     }
+    println!("End message");
     Ok(())
 }
 
@@ -53,7 +55,7 @@ pub fn handle_message(msg_type: u16, msg_data: &Rlp) -> Result<(), RlpError>
         MsgP2pResponse => handle_p2p_response(&msg_data)?,
         MsgTxPoolSyncInit => handle_tx_pool_sync_init(&msg_data)?,
         MsgTxs => handle_txs(&msg_data)?,
-        MsgKeyBlock => handle_keyblock(&msg_data)?,
+        MsgKeyBlock => handle_key_blocks(&msg_data)?,
         MsgMicroBlock => handle_micro_block(&msg_data)?,
         _ => (),
     }
@@ -111,25 +113,29 @@ Message is RLP encoded, fields:
 KeyBlock :: byte_array - Serialized key block
 The key block is serialized.
 */
-fn handle_keyblock(msg_data: &Rlp) -> Result<(), RlpError>
+fn handle_key_blocks(msg_data: &Rlp) -> Result<(), RlpError>
 {
-    let version: u32 = msg_data.val_at(0)?;
-    //    let flags: u32 = msg_data.val_at(1).unwrap();
-    let mut i = msg_data.iter();
-    loop {
-        let ele;
-        match i.next() {
-            Some(x) => ele = x,
-            None => break,
-        };
-        match ele.prototype().unwrap(){
-            rlp::Prototype::Data(size) => println!("Data, size is {}", size),
-            rlp::Prototype::List(count) => println!("List, length is {}", count),
-            _ => println!("Something else"),
-        };
-
+    assert!(msg_data.item_count()? % 2 == 0); // each KB is 2 nessages
+    for i in 0 .. (msg_data.item_count()? / 2) {
+        assert!(msg_data.val_at::<u16>(2*i)? == 1);
+        let data = msg_data.at(2*i + 1)?.data()?;
+        handle_key_block(&data)?
     }
     Ok(())
+}
+
+fn handle_key_block(binary: &[u8]) -> Result<(), RlpError>
+{
+    let kb = KeyBlock::new_from_byte_array(binary)?;
+    println!("height: {}", kb.height);
+    println!("{}", kb.to_string()?);
+    Ok(())
+}
+
+#[test]
+fn test_handle_keyblocks() {
+    let msg_data = rlp::Rlp::new(&[249, 1, 112, 1, 185, 1, 108, 0, 0, 0, 1, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 120, 213, 92, 221, 122, 51, 146, 97, 216, 168, 22, 168, 250, 143, 2, 231, 167, 245, 229, 210, 246, 69, 182, 88, 13, 250, 162, 188, 15, 14, 101, 248, 148, 29, 92, 221, 122, 51, 146, 97, 216, 168, 22, 168, 250, 143, 2, 231, 167, 245, 229, 210, 246, 69, 182, 88, 13, 250, 162, 188, 15, 14, 101, 248, 148, 29, 176, 41, 10, 83, 206, 164, 90, 232, 160, 91, 251, 73, 66, 64, 89, 6, 188, 12, 187, 151, 130, 18, 175, 172, 230, 244, 62, 185, 65, 99, 228, 87, 89, 208, 74, 214, 149, 81, 254, 173, 191, 153, 147, 65, 203, 7, 189, 33, 181, 98, 226, 184, 225, 46, 215, 193, 37, 70, 29, 232, 38, 124, 159, 81, 104, 65, 117, 174, 49, 251, 29, 202, 69, 174, 147, 56, 60, 150, 188, 247, 149, 85, 150, 148, 88, 102, 186, 208, 87, 101, 78, 111, 189, 5, 144, 101, 30, 8, 218, 121, 0, 108, 68, 250, 2, 123, 179, 154, 2, 160, 22, 119, 2, 217, 91, 235, 3, 24, 170, 15, 5, 53, 86, 204, 6, 56, 4, 28, 7, 54, 165, 88, 8, 37, 67, 86, 8, 104, 108, 188, 8, 204, 203, 135, 12, 8, 176, 186, 12, 49, 40, 239, 12, 189, 43, 116, 13, 16, 49, 158, 13, 49, 6, 125, 14, 42, 177, 119, 14, 197, 110, 178, 14, 208, 156, 200, 15, 103, 19, 163, 16, 193, 222, 245, 17, 79, 131, 88, 17, 204, 2, 106, 18, 186, 238, 190, 19, 129, 5, 18, 20, 11, 103, 137, 20, 121, 122, 61, 20, 223, 182, 151, 22, 85, 181, 228, 23, 221, 51, 38, 24, 39, 167, 255, 24, 79, 76, 252, 24, 230, 191, 206, 27, 124, 91, 228, 28, 0, 173, 69, 29, 79, 226, 177, 29, 254, 48, 243, 30, 44, 230, 128, 30, 147, 120, 54, 31, 55, 227, 55, 31, 72, 94, 156, 31, 109, 74, 209, 184, 248, 70, 81, 19, 166, 147, 231, 0, 0, 1, 104, 162, 223, 140, 59]);
+    handle_key_blocks(&msg_data).unwrap();
 }
 
 /*
@@ -177,6 +183,79 @@ pub fn mangle_rlp(data: &Vec<u8>) -> Vec<u8>{
     }).collect()
 }
 
+pub struct KeyBlock {
+    version: u32,
+    key_unused: u32,
+    height: u64,
+    prev_hash: [u8;32],
+    prev_key_hash: [u8;32],
+    state_hash: [u8;32],
+    miner: [u8;32],
+    beneficiary: [u8;32],
+    target: u32,
+    pow: [u8;168],
+    nonce: u64,
+    time: u64,
+}
+
+/*
+Fieldname	Size (bytes)
+version	32 bits
+key_tag	1 bit
+unused_flags	31 bits (all set to 0)
+height	8
+prev_hash	32
+prev_key_hash	32
+state_hash	32
+miner	32
+beneficiary	32
+target	4
+pow	168
+nonce	8
+time	8
+*/
+impl KeyBlock {
+    fn new_from_byte_array(bytes: &[u8]) -> Result<KeyBlock, RlpError>
+    {
+        println!("bytes: {:?} length {}", bytes, bytes.len());
+        let bytes = bytes.clone();
+        Ok(KeyBlock {
+            version: <&[u8]>::read_u32::<BigEndian>(&mut (&bytes[0..4]).clone())?,
+            key_unused: <&[u8]>::read_u32::<BigEndian>(&mut (&bytes[4..8]).clone())?,
+            height: <&[u8]>::read_u64::<BigEndian>(&mut (&bytes[8..16]).clone())?,
+            prev_hash: array_ref![bytes,16,32].clone(),
+            prev_key_hash: array_ref![bytes,48,32].clone(),
+            state_hash: array_ref![bytes, 80, 32].clone(),
+            miner: array_ref![bytes, 112, 32].clone(),
+            beneficiary: array_ref![bytes, 144, 32].clone(),
+            target:  <&[u8]>::read_u32::<BigEndian>(&mut (&bytes[176..180]).clone())?,
+            pow: array_ref![bytes, 180, 168].clone(),
+            nonce: <&[u8]>::read_u64::<BigEndian>(&mut (&bytes[348..356]).clone())?,
+            time: <&[u8]>::read_u64::<BigEndian>(&mut (&bytes[356..364]).clone())?,
+        })
+    }
+
+    pub fn to_string(&self) -> Result<String, RlpError>
+    {
+        Ok(format!(
+            "version: {} flags: {} height: {} prev_hash: {:?} prev_key_hash: {:?} state_hash: {:?} \
+             miner: {:?} beneficiary: {:?} target: {} pow: {:?} nonce: {} time: {}",
+            self.version,
+            self.key_unused,
+            self.height,
+            self.prev_hash,
+            self.prev_key_hash,
+            self.state_hash,
+            self.miner,
+            self.beneficiary,
+            self.target,
+            self.pow.to_vec(),
+            self.nonce,
+            self.time
+        ))
+    }
+}
+
 #[derive(Debug,Serialize)]
 pub struct Ping {
     version: u16,
@@ -222,5 +301,4 @@ impl Ping {
         println!("{:?}", v);
         Ok(v)
     }
-
 }

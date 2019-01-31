@@ -5,6 +5,7 @@ authors = ["John Newby <john@newby.org>"]
 edition = "2018"
 
 [dependencies]
+arrayref = "0.3.5"
 base58check = "0.0.1"
 byteorder = "*"
 hex = "0.3.2"

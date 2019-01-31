@@ -1,3 +1,4 @@
+#[macro_use] extern crate arrayref;
 extern crate byteorder;
 #[macro_use]extern crate lazy_static;
 extern crate regex;
