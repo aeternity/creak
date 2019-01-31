@@ -5,6 +5,8 @@ use serde_rlp::ser::to_bytes;
 
 type RlpError = Box<std::error::Error>;
 
+use std::ops::Index;
+
 const MsgFragment: u16 = 0;
 const MsgP2pResponse: u16 = 100;
 const MsgPing: u16 = 1;
@@ -155,30 +157,95 @@ Txs:: [byte_array]
 A signed transaction is serialized as a tagged and versioned signed transaction.
 */
 pub fn handle_txs(msg_data: &Rlp) -> Result<(), RlpError> {
-    let version: &[u8] = msg_data.at(0)?.data()?;
-    println!("Version: {:?}", version);
-    let txs: Rlp = msg_data.at(1)?;
-    println!("Txs are {:?}", txs);
-    for i in 0..txs.item_count().unwrap() {
-        let stx_raw = txs.at(i).unwrap();
-        let stx = Rlp::new(stx_raw.as_raw());
-        let tx_raw = stx.at(3).unwrap();
-        let tx = Rlp::new(tx_raw.as_raw());
+    let version: u8 = msg_data.at(0)?.data()?[0];
+    assert!(version == 1);
+    let tmp = msg_data.at(1)?; // temp variable so it doesn't go out of scope
+    let mut iter = tmp.iter();
+    let mut tx: rlp::Rlp;
+    loop {
+        let signed_tx = match iter.next() {
+            Some(x) => x,
+            None => break,
+        };
+        let tag = signed_tx.at(0)?.data()?[0];
+        assert!(tag == 11);
+        let version = signed_tx.at(1)?.data()?[0];
+        assert!(version == 1);
+        //signatures
+        let transaction = rlp::Rlp::new(signed_tx.at(3)?.data()?);
+        let tag: u8 = transaction.at(0)?.data()?[0];
+        let version: u8 = transaction.at(1)?.data()?[1];
+//        process_transaction(tag, &transaction);
     }
-
     Ok(())
+}
+
+#[derive(Debug)]
+enum RlpVal {
+    Val { data: Vec<u8> },
+    List { data: Vec<RlpVal> },
+    None,
+}
+
+
+impl RlpVal {
+    pub fn from_rlp(r: &Rlp) -> Result<RlpVal, RlpError>
+    {
+        if r.is_list() {
+            println!("is_list");
+            let mut data = Vec::<RlpVal>::new();
+            let mut iter = r.iter();
+            loop {
+                match iter.next() {
+                    Some(x) => {
+                        println!("adding {:?}", x);
+                        data.push(RlpVal::from_rlp(&x).unwrap());
+                    },
+                    None => break,
+                };
+            }
+            Ok(RlpVal::List { data })
+        } else {
+            println!("not_list");
+            Ok(  RlpVal::Val { data: r.data()?.to_vec() })
+        }
+    }
+}
+
+impl Index<usize> for RlpVal {
+    type Output = RlpVal;
+
+    fn index(&self, index: usize) -> &RlpVal {
+        match self {
+            RlpVal::List{ data } => &data[index],
+            _ => &RlpVal::None,
+        }
+    }
 }
 
 #[test]
 fn test_handle_txs() {
     let txs = include!("../data/transactions.rs");
     display_message(&txs);
-    let payload = rlp::Rlp::new(txs.at(1).unwrap().at(0).unwrap().data().unwrap());
-    display_message(&payload);
-    let unknown = rlp::Rlp::new(payload.at(3).unwrap().data().unwrap());
-    display_message(&unknown).unwrap();
-    let unknown2 = unknown.at(8).unwrap().data().unwrap();
-    println!("Payload is {}", String::from_utf8(unknown2.to_vec()).unwrap());
+    let tmp = txs.at(1).unwrap();
+    let mut iter = tmp.iter();
+    let mut tx: rlp::Rlp;
+    loop {
+        let tx = match iter.next() {
+            Some(x) => x,
+            None => break,
+        };
+        let payload = rlp::Rlp::new(tx.data().unwrap());
+        let rlp_val = RlpVal::from_rlp(&payload);
+        println!("rlp_val: {:?}", rlp_val);
+        display_message(&payload);
+        let unknown = rlp::Rlp::new(payload.at(3).unwrap().data().unwrap());
+        let tx_ = RlpVal::from_rlp(&unknown);
+        println!("rlp_val: {:?}", tx_);
+        display_message(&unknown).unwrap();
+        let unknown2 = unknown.at(8).unwrap().data().unwrap();
+        println!("Payload is {}", String::from_utf8(unknown2.to_vec()).unwrap());
+    }
 }
 
 pub fn bigend_u16(num: u16) -> Result<Vec<u8>, RlpError> {
