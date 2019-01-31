@@ -74,6 +74,10 @@ Object :: byte_array - an object of type Type if Result is true.
 */
 fn handle_p2p_response(msg_data: &Rlp) -> Result<(), RlpError>
 {
+    let result: u8 = msg_data.val_at(0)?;
+    let _type: u8 = msg_data.val_at(1)?;
+    let reason: Vec<u8> = msg_data.val_at(2)?;
+    let object: Vec<u8> = msg_data.val_at(3)?;
     println!("p2p_response: {:?}", msg_data.as_raw());
     Ok(())
 }
@@ -96,14 +100,14 @@ A normal micro block is serialized. A light micro block is serialized using aec_
 fn handle_micro_block(msg_data: &Rlp) -> Result<(), RlpError>
 {
 
-    // let version: &[u8] = msg_data.at(0)?.data()?;
-    // println!("Version: {:?}",version);
-    // let payload: Rlp = msg_data.at(1)?;
-    // let light: u16 = msg_data.at(2)?.as_val().unwrap();
-    // println!("TXs: {:?}", payload.item_count()?);
-    // let tx = Rlp::new(payload.at(0)?.as_raw());
-    // println!("TX tag is {:?}", tx.at(0)?);
     Ok(())
+}
+
+#[test]
+fn test_handle_micro_block() {
+    let msg_data = include!("../data/micro-block.rs");
+    display_message(&msg_data).unwrap();
+    println!("Done");
 }
 
 /*
@@ -134,7 +138,7 @@ fn handle_key_block(binary: &[u8]) -> Result<(), RlpError>
 
 #[test]
 fn test_handle_keyblocks() {
-    let msg_data = rlp::Rlp::new(&[249, 1, 112, 1, 185, 1, 108, 0, 0, 0, 1, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 120, 213, 92, 221, 122, 51, 146, 97, 216, 168, 22, 168, 250, 143, 2, 231, 167, 245, 229, 210, 246, 69, 182, 88, 13, 250, 162, 188, 15, 14, 101, 248, 148, 29, 92, 221, 122, 51, 146, 97, 216, 168, 22, 168, 250, 143, 2, 231, 167, 245, 229, 210, 246, 69, 182, 88, 13, 250, 162, 188, 15, 14, 101, 248, 148, 29, 176, 41, 10, 83, 206, 164, 90, 232, 160, 91, 251, 73, 66, 64, 89, 6, 188, 12, 187, 151, 130, 18, 175, 172, 230, 244, 62, 185, 65, 99, 228, 87, 89, 208, 74, 214, 149, 81, 254, 173, 191, 153, 147, 65, 203, 7, 189, 33, 181, 98, 226, 184, 225, 46, 215, 193, 37, 70, 29, 232, 38, 124, 159, 81, 104, 65, 117, 174, 49, 251, 29, 202, 69, 174, 147, 56, 60, 150, 188, 247, 149, 85, 150, 148, 88, 102, 186, 208, 87, 101, 78, 111, 189, 5, 144, 101, 30, 8, 218, 121, 0, 108, 68, 250, 2, 123, 179, 154, 2, 160, 22, 119, 2, 217, 91, 235, 3, 24, 170, 15, 5, 53, 86, 204, 6, 56, 4, 28, 7, 54, 165, 88, 8, 37, 67, 86, 8, 104, 108, 188, 8, 204, 203, 135, 12, 8, 176, 186, 12, 49, 40, 239, 12, 189, 43, 116, 13, 16, 49, 158, 13, 49, 6, 125, 14, 42, 177, 119, 14, 197, 110, 178, 14, 208, 156, 200, 15, 103, 19, 163, 16, 193, 222, 245, 17, 79, 131, 88, 17, 204, 2, 106, 18, 186, 238, 190, 19, 129, 5, 18, 20, 11, 103, 137, 20, 121, 122, 61, 20, 223, 182, 151, 22, 85, 181, 228, 23, 221, 51, 38, 24, 39, 167, 255, 24, 79, 76, 252, 24, 230, 191, 206, 27, 124, 91, 228, 28, 0, 173, 69, 29, 79, 226, 177, 29, 254, 48, 243, 30, 44, 230, 128, 30, 147, 120, 54, 31, 55, 227, 55, 31, 72, 94, 156, 31, 109, 74, 209, 184, 248, 70, 81, 19, 166, 147, 231, 0, 0, 1, 104, 162, 223, 140, 59]);
+    let msg_data = include!("../data/key-block.rs");
     handle_key_blocks(&msg_data).unwrap();
 }
 
