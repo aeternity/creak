@@ -5,7 +5,8 @@ use serde_rlp::ser::to_bytes;
 
 type RlpError = Box<std::error::Error>;
 
-use std::ops::Index;
+use std::ops::{Index};
+use std::convert::From;
 
 const MsgFragment: u16 = 0;
 const MsgP2pResponse: u16 = 100;
@@ -189,6 +190,16 @@ enum RlpVal {
 
 
 impl RlpVal {
+
+    /*
+    let _test = rlp::Rlp::new(data);
+    if _test.is_list() {
+    let data_copy = data.clone();
+    let _rlp = std::boxed::Box(rlp::Rlp::new(&data_copy));
+    return &RlpVal::from_rlp(&_rlp).unwrap(); // TODO: fix
+     */
+
+
     pub fn from_rlp(r: &Rlp) -> Result<RlpVal, RlpError>
     {
         if r.is_list() {
@@ -212,12 +223,63 @@ impl RlpVal {
     }
 }
 
+trait FromRlp {
+    fn convert(val: &RlpVal) -> Self;
+}
+
+fn ensure_vec_len(v: &mut Vec<u8>, len: usize) -> &Vec<u8>{
+    loop {
+        if v.len() >= 4 { break; }
+        v.insert(0,0);
+    }
+    v
+}
+
+impl FromRlp for u32 {
+    fn convert(item: &RlpVal) -> Self {
+        match item {
+            RlpVal::Val { data } => {
+                BigEndian::read_u32(&ensure_vec_len(&mut data.clone(), 4))
+            },
+            _ => 0
+        }
+    }
+}
+
+impl FromRlp for u16 {
+    fn convert(item: &RlpVal) -> Self {
+        match item {
+            RlpVal::Val { data } => {
+                BigEndian::read_u16(&ensure_vec_len(&mut data.clone(), 2))
+            },
+            _ => 0
+        }
+    }
+}
+
+impl FromRlp for String {
+    fn convert(item: &RlpVal) -> Self {
+        match item {
+            RlpVal::Val { data } => {
+                match String::from_utf8(data.to_vec()) {
+                    Ok(x) => x,
+                    Err(e) => String::from(e.to_string()),
+                }
+            },
+            _ => String::from(""),
+        }
+    }
+}
+
 impl Index<usize> for RlpVal {
     type Output = RlpVal;
 
     fn index(&self, index: usize) -> &RlpVal {
         match self {
-            RlpVal::List{ data } => &data[index],
+            RlpVal::List { data } => &data[index],
+            RlpVal::Val { data }  => {
+                &RlpVal::None
+            },
             _ => &RlpVal::None,
         }
     }
@@ -240,11 +302,14 @@ fn test_handle_txs() {
         println!("rlp_val: {:?}", rlp_val);
         display_message(&payload);
         let unknown = rlp::Rlp::new(payload.at(3).unwrap().data().unwrap());
-        let tx_ = RlpVal::from_rlp(&unknown);
+        let tx_ = RlpVal::from_rlp(&unknown).unwrap();
+        println!("tx0 {:?}", tx_[0]);
         println!("rlp_val: {:?}", tx_);
+        let _u: u32 = u32::convert(&tx_[0]);
+        println!("tag: {}", _u);
         display_message(&unknown).unwrap();
         let unknown2 = unknown.at(8).unwrap().data().unwrap();
-        println!("Payload is {}", String::from_utf8(unknown2.to_vec()).unwrap());
+        println!("Payload is {}", String::convert(&tx_[8]));
     }
 }
 
