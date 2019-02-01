@@ -23,6 +23,7 @@ use serde_rlp::ser::to_bytes;
 
 pub mod aenode;
 pub mod messages;
+pub mod rlp_val;
 
 lazy_static! {
     static ref PARAMS: NoiseParams = "Noise_XK_25519_ChaChaPoly_BLAKE2b".parse().unwrap();
