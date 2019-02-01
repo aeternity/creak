@@ -197,7 +197,7 @@ fn test_handle_txs() {
             None => break,
         };
         let payload = rlp::Rlp::new(tx.data().unwrap());
-        let rlp_val = RlpVal::from_rlp(&payload);
+        let rlp_val = RlpVal::from_rlp(&payload).unwrap();
         println!("rlp_val: {:?}", rlp_val);
         display_message(&payload);
         let unknown = rlp::Rlp::new(payload.at(3).unwrap().data().unwrap());
@@ -211,7 +211,9 @@ fn test_handle_txs() {
         display_message(&unknown).unwrap();
         let unknown2 = unknown.at(8).unwrap().data().unwrap();
         println!("Payload is {}", String::convert(&tx_[8]));
-        println!("json is {}", crate::jsonifier::spend_tx(&tx_));
+        let v = crate::jsonifier::spend_tx(&tx_);
+        println!("json is {}", v);
+        println!("signed tx is {}", crate::jsonifier::signed_tx(&rlp_val, &v));
     }
 }
 

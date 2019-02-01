@@ -3,7 +3,7 @@ use byteorder::*;
 use crypto::digest::Digest;
 use crypto::sha2::Sha256;
 use rlp::{Rlp, RlpStream};
-use serde::ser::{Serialize, Serializer};
+use serde::ser::{Serialize, SerializeSeq, Serializer};
 use std::ops::{Index};
 use std::convert::From;
 use std::fmt;
@@ -54,6 +54,30 @@ impl RlpVal {
 
 pub trait FromRlp {
     fn convert(val: &RlpVal) -> Self;
+}
+
+impl Serialize for RlpVal {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match &self {
+            RlpVal::List { data } => serializer.serialize_str(&format!("{:?}", data)),
+            RlpVal::Val { data } => serializer.serialize_bytes(data),
+            RlpVal::None =>  serializer.serialize_str(&format!("")),
+        }
+    }
+}
+
+impl std::clone::Clone for RlpVal {
+    fn clone(&self) -> Self
+    {
+        match &self {
+            RlpVal::List { data } => RlpVal::List { data: data.clone() },
+            RlpVal::Val { data } => RlpVal::Val { data: data.clone() },
+            RlpVal::None =>  RlpVal::None,
+        }
+    }
 }
 
 fn ensure_vec_len(v: &mut Vec<u8>, len: usize) -> &Vec<u8>{
@@ -151,9 +175,63 @@ impl AeIdentifier {
             4 => "ok",
             5 => "ct_",
             6 => "ch_",
-            _ => return None,
+            _ => "sg_",
         };
         Some(AeIdentifier{ id: format!("{}{}", prefix, to_base58check(&bytes[1..])) })
+    }
+}
+
+pub struct SignatureList {
+    signatures: Vec<AeIdentifier>,
+}
+
+
+impl SignatureList {
+    pub fn new(signatures: Vec<AeIdentifier>) -> SignatureList
+    {
+        SignatureList { signatures, }
+    }
+}
+
+impl Serialize for SignatureList {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut seq = serializer.serialize_seq(None).unwrap(); // TODO
+        let mut iter = self.signatures.iter();
+        loop {
+            match iter.next() {
+                Some(x) => seq.serialize_element(x),
+                None => break,
+            };
+        }
+        seq.end()
+    }
+}
+
+
+impl FromRlp for SignatureList {
+    fn convert(item: &RlpVal) -> Self {
+        match item {
+            RlpVal::List { data } => {
+                let mut v: Vec<AeIdentifier> = Vec::new();
+                let mut iter = data.iter();
+                loop {
+                    match iter.next() {
+                        Some(ele) => {
+                            match ele {
+                                RlpVal::Val { data } => v.push(AeIdentifier::from_bytes(&data.to_vec()).unwrap()),
+                                _ => (),
+                            }
+                        },
+                        None => break,
+                    }
+                }
+                SignatureList::new(v)
+            },
+            _ => SignatureList::new(vec!()),
+        }
     }
 }
 
