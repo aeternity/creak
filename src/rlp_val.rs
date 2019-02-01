@@ -1,12 +1,14 @@
+use base58::ToBase58;
 use byteorder::*;
+use crypto::digest::Digest;
+use crypto::sha2::Sha256;
 use rlp::{Rlp, RlpStream};
-
-use serde_rlp::ser::to_bytes;
-
-type RlpError = Box<std::error::Error>;
-
+use serde::ser::{Serialize, Serializer};
 use std::ops::{Index};
 use std::convert::From;
+use std::fmt;
+
+type RlpError = Box<std::error::Error>;
 
 #[derive(Debug)]
 pub enum RlpVal {
@@ -56,11 +58,33 @@ pub trait FromRlp {
 
 fn ensure_vec_len(v: &mut Vec<u8>, len: usize) -> &Vec<u8>{
     loop {
-        if v.len() >= 4 { break; }
+        if v.len() >= len { break; }
         v.insert(0,0);
     }
     v
 }
+
+impl FromRlp for u128 {
+    fn convert(item: &RlpVal) -> Self {
+        match item {
+            RlpVal::Val { data } => {
+                BigEndian::read_u128(&ensure_vec_len(&mut data.clone(), 16))
+            },
+            _ => 0
+        }
+    }
+ }
+
+impl FromRlp for u64 {
+    fn convert(item: &RlpVal) -> Self {
+        match item {
+            RlpVal::Val { data } => {
+                BigEndian::read_u64(&ensure_vec_len(&mut data.clone(), 8))
+            },
+            _ => 0
+        }
+    }
+ }
 
 impl FromRlp for u32 {
     fn convert(item: &RlpVal) -> Self {
@@ -98,13 +122,56 @@ impl FromRlp for String {
     }
 }
 
+impl FromRlp for AeIdentifier {
+    fn convert(item: &RlpVal) -> Self {
+        match item {
+            RlpVal::Val { data } => {
+                return match AeIdentifier::from_bytes(&data.to_vec()) {
+                    Some(x) => x,
+                    None => AeIdentifier { id: String::from("")},
+                };
+            },
+            _ => AeIdentifier { id: String::from("") },
+        }
+    }
+}
+
+
 pub struct AeIdentifier {
     id: String,
 }
 
 impl AeIdentifier {
-
+    pub fn from_bytes(bytes: &Vec<u8>) -> Option<AeIdentifier>
+    {
+        let prefix = match bytes[0] {
+            1 => "ak_",
+            2 => "nm_",
+            3 => "cm_",
+            4 => "ok",
+            5 => "ct_",
+            6 => "ch_",
+            _ => return None,
+        };
+        Some(AeIdentifier{ id: format!("{}{}", prefix, to_base58check(&bytes[1..])) })
+    }
 }
+
+impl std::fmt::Display for AeIdentifier {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.id)
+    }
+}
+
+impl Serialize for AeIdentifier {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.id)
+    }
+}
+
 
 impl Index<usize> for RlpVal {
     type Output = RlpVal;
@@ -118,4 +185,30 @@ impl Index<usize> for RlpVal {
             _ => &RlpVal::None,
         }
     }
+}
+
+
+/* taken from https://github.com/dotcypress/base58check
+ * reproduced with kind permission of the author
+ */
+fn to_base58check(data: &[u8]) -> String {
+    let mut payload = data.to_vec();
+    let mut checksum = double_sha256(&payload);
+    payload.append(&mut checksum[..4].to_vec());
+    payload.to_base58()
+}
+
+/*
+ * taken from https://github.com/dotcypress/base58check
+ * reproduced with kind permission of the author
+ */
+fn double_sha256(payload: &[u8]) -> Vec<u8> {
+    let mut hasher = Sha256::new();
+    let mut hash = vec![0; hasher.output_bytes()];
+    hasher.input(&payload);
+    hasher.result(&mut hash);
+    hasher.reset();
+    hasher.input(&hash);
+    hasher.result(&mut hash);
+    hash.to_vec()
 }

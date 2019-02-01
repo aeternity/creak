@@ -30,6 +30,7 @@ const MsgTxPoolSyncFinish: u16 = 23;
 const MsgClose: u16 = 127;
 
 use crate::rlp_val::*;
+use crate::jsonifier::spend_tx;
 
 fn display_message(msg_data: &Rlp) -> Result<(), RlpError> {
     println!("Starting message with {} elements:", msg_data.item_count()?);
@@ -205,9 +206,12 @@ fn test_handle_txs() {
         println!("rlp_val: {:?}", tx_);
         let _u: u32 = u32::convert(&tx_[0]);
         println!("tag: {}", _u);
+        let ident: AeIdentifier = AeIdentifier::convert(&tx_[2]);
+        println!("aeid: {}", ident);
         display_message(&unknown).unwrap();
         let unknown2 = unknown.at(8).unwrap().data().unwrap();
         println!("Payload is {}", String::convert(&tx_[8]));
+        println!("json is {}", crate::jsonifier::spend_tx(&tx_));
     }
 }
 

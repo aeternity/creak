@@ -8,6 +8,7 @@ extern crate snow;
 extern crate hex;
 #[macro_use]extern crate serde_rlp;
 #[macro_use]extern crate serde_derive;
+#[macro_use]extern crate serde_json;
 
 use base58check::{FromBase58Check};
 use byteorder::{ByteOrder, BigEndian, ReadBytesExt};
@@ -24,6 +25,7 @@ use serde_rlp::ser::to_bytes;
 pub mod aenode;
 pub mod messages;
 pub mod rlp_val;
+pub mod jsonifier;
 
 lazy_static! {
     static ref PARAMS: NoiseParams = "Noise_XK_25519_ChaChaPoly_BLAKE2b".parse().unwrap();
