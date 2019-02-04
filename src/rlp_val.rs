@@ -1,3 +1,6 @@
+extern crate base64;
+
+use base64::encode as to_base64;
 use base58::ToBase58;
 use byteorder::*;
 use crypto::digest::Digest;
@@ -284,8 +287,7 @@ fn to_base64check (data: &[u8]) -> String {
     let mut payload = data.to_vec();
     let mut checksum = double_sha256(&payload);
     payload.append(&mut checksum[..4].to_vec());
-    String::from("")
-//    payload.to_base64() TODO
+    to_base64(&payload)
 }
 
 /*
@@ -303,13 +305,17 @@ fn double_sha256(payload: &[u8]) -> Vec<u8> {
     hash.to_vec()
 }
 
-pub fn encode(data: &[u8], prefix: &str) -> String {
+pub fn encode(item: &RlpVal, prefix: &str) -> String {
     let base64types = ["tx", "st", "ss", "pi", "ov", "or", "cb"];
-    let mut encoded_value: String;
-    if base64types.contains(&prefix) {
-        encoded_value = to_base64check(data)
-    } else {
-        encoded_value = to_base58check(data)
-    }
+    let mut encoded_value: String = match item {
+        RlpVal::Val { data } => {
+            if base64types.contains(&prefix) {
+                to_base64check(data)
+            } else {
+                to_base58check(data)
+            }
+        },
+        _ => String::from("Empty")
+    };
     format!("{}_{}", prefix, encoded_value)
 }
