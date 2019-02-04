@@ -213,7 +213,7 @@ fn test_handle_txs() {
         println!("Payload is {}", String::convert(&tx_[8]));
         let v = crate::jsonifier::spend_tx(&tx_);
         println!("json is {}", v);
-        println!("signed tx is {}", crate::jsonifier::signed_tx(&rlp_val));
+        println!("signed tx is {}", crate::jsonifier::signed_tx(&rlp_val).unwrap()); // TODO
     }
 }
 

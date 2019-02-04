@@ -1,5 +1,8 @@
-use serde_json::*;
+use serde::ser::{Serialize, Serializer};
+use serde_json::Value;
 use crate::rlp_val::*;
+
+type RlpError = Box<std::error::Error>;
 
 const OBJECT_TAG_SIGNED_TRANSACTION: u32 = 11;
 const OBJECT_TAG_SPEND_TRANSACTION :u32 = 12;
@@ -52,7 +55,7 @@ impl TxType {
         }
     }
 
-    pub fn as_str(&self) -> &'static str {
+    pub fn as_str(s: &TxType) -> &'static str {
         match s {
             TxType::SignedTx => "signedTx",
             TxType::Spend => "spendTx",
@@ -71,6 +74,15 @@ impl TxType {
     }
 }
 
+impl Serialize for TxType {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(TxType::as_str(self))
+    }
+}
+
 fn process_tx(stx: &RlpVal) -> Value {
     let _type = TxType::from_tag(u32::convert(&stx[0]));
     match _type {
@@ -82,7 +94,7 @@ fn process_tx(stx: &RlpVal) -> Value {
 
 fn parse_tx(stx: &RlpVal, tx_type: TxType) -> Value {
     match  tx_type {
-        TxType::SignedTx => signed_tx(stx),
+        TxType::SignedTx => signed_tx(stx).unwrap(), // TODO
         TxType::Spend => spend_tx(stx),
         TxType::ContractCall => contract_call(stx),
         TxType::ContractCreate => contract_create(stx),
@@ -98,17 +110,20 @@ fn parse_tx(stx: &RlpVal, tx_type: TxType) -> Value {
     }
 }
 
-pub fn signed_tx(stx: &RlpVal) -> Value
+pub fn signed_tx(stx: &RlpVal) -> ::std::result::Result<Value, RlpError>
 {
-    let tx_rlp_val = stx.at(3).unwrap().data().unwrap();
+    let tx_rlp_val = match &stx[3] {
+        RlpVal::Val { data } => rlp::Rlp::new(&data),
+        _ => return Err("Wrong type of RlpVal".into()),
+    };
 
-    let tx_json = process_tx(&tx_rlp_val);
-    json!(
+    let tx_json = process_tx(&RlpVal::from_rlp(&tx_rlp_val)?);
+    Ok(json!(
         {
-            "type": TxType::SignedTx::as_str(),
+            "type": TxType::SignedTx,
             "signatures": SignatureList::convert(&stx[2]),
             "tx": tx_json,
-        })
+        }))
 }
 
 pub fn spend_tx(rlp: &RlpVal) -> Value
