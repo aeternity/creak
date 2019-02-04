@@ -37,7 +37,7 @@ pub enum TxType {
 }
 
 impl TxType {
-    pub fn from_tag(s: &i16) -> Option<TxType> {
+    pub fn from_tag(s: &u32) -> Option<TxType> {
         match s {
             OBJECT_TAG_CONTRACT_CALL_TRANSACTION => Some(TxType::ContractCall),
             OBJECT_TAG_CONTRACT_CREATE_TRANSACTION => Some(TxType::ContractCreate),
@@ -75,18 +75,44 @@ impl TxType {
     }
 }
 
-fn tx_type(tag: u32) -> String {
-    String::from("SpendTx")
+fn process_tx(stx: &RlpVal) -> Value {
+    let _type = TxType::from_tag(u32::convert(&stx[0]));
+    match _type {
+        Some(txType) => parse_tx(stx, txType),
+        None => panic!("Wrong Transaction type")
+    }
+
 }
 
-pub fn signed_tx(stx: &RlpVal, tx: &Value) -> Value
+fn parse_tx(stx: &RlpVal, tx_type: TxType) -> Value {
+    match  tx_type {
+        TxType::SignedTx => signed_tx(stx),
+        TxType::Spend => spend_tx(stx),
+        TxType::ContractCall => contract_call(stx),
+        TxType::ContractCreate => contract_create(stx),
+        TxType::NameClaim => name_claim(stx),
+        TxType::NamePreClaim => name_pre_claim(stx),
+        TxType::NameUpdate => name_update(stx),
+        TxType::NameTransfer => name_transfer(stx),
+        TxType::NameRevoke => name_revoke(stx),
+        TxType::OracleRegister => oracle_register(stx),
+        TxType::OracleExtend => oracle_extend(stx),
+        TxType::OracleQuery => oracle_query(stx),
+        TxType::OracleRespond => oracle_respond(stx),
+    }
+}
+
+pub fn signed_tx(stx: &RlpVal) -> Value
 {
-    let _type = tx_type(u32::convert(&stx[0]));
+    let tx_ = rlp::Rlp::new(stx.at(3).unwrap().data().unwrap());
+    let tx_rlp_val = RlpVal::from_rlp(&tx_).unwrap();
+
+    let tx_json = process_tx(&tx_rlp_val);
     json!(
         {
-            "type": _type,
+            "type": TxType::SignedTx::as_str(),
             "signatures": SignatureList::convert(&stx[2]),
-            "tx": tx,
+            "tx": tx_json,
         })
 }
 
