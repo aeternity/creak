@@ -1,24 +1,20 @@
 use serde_json::*;
 use crate::rlp_val::*;
 
-#[macro_use]
-extern crate lazy_static;
+const OBJECT_TAG_SIGNED_TRANSACTION: u32 = 11;
+const OBJECT_TAG_SPEND_TRANSACTION :u32 = 12;
+const OBJECT_TAG_ORACLE_REGISTER_TRANSACTION :u32 = 22;
+const OBJECT_TAG_ORACLE_QUERY_TRANSACTION :u32 = 23;
+const OBJECT_TAG_ORACLE_RESPONSE_TRANSACTION :u32 = 24;
+const OBJECT_TAG_ORACLE_EXTEND_TRANSACTION :u32 = 25;
+const OBJECT_TAG_NAME_SERVICE_CLAIM_TRANSACTION :u32 = 32;
+const OBJECT_TAG_NAME_SERVICE_PRECLAIM_TRANSACTION :u32 = 33;
+const OBJECT_TAG_NAME_SERVICE_UPDATE_TRANSACTION :u32 = 34;
+const OBJECT_TAG_NAME_SERVICE_REVOKE_TRANSACTION :u32 = 35;
+const OBJECT_TAG_NAME_SERVICE_TRANSFER_TRANSACTION :u32 = 36;
+const OBJECT_TAG_CONTRACT_CREATE_TRANSACTION :u32 = 42;
+const OBJECT_TAG_CONTRACT_CALL_TRANSACTION :u32 = 43;
 
-lazy_static! {
-    static ref OBJECT_TAG_SIGNED_TRANSACTION = 11;
-    static ref OBJECT_TAG_SPEND_TRANSACTION = 12;
-    static ref OBJECT_TAG_ORACLE_REGISTER_TRANSACTION = 22;
-    static ref OBJECT_TAG_ORACLE_QUERY_TRANSACTION = 23;
-    static ref OBJECT_TAG_ORACLE_RESPONSE_TRANSACTION = 24;
-    static ref OBJECT_TAG_ORACLE_EXTEND_TRANSACTION = 25;
-    static ref OBJECT_TAG_NAME_SERVICE_CLAIM_TRANSACTION = 32;
-    static ref OBJECT_TAG_NAME_SERVICE_PRECLAIM_TRANSACTION = 33;
-    static ref OBJECT_TAG_NAME_SERVICE_UPDATE_TRANSACTION = 34;
-    static ref OBJECT_TAG_NAME_SERVICE_REVOKE_TRANSACTION = 35;
-    static ref OBJECT_TAG_NAME_SERVICE_TRANSFER_TRANSACTION = 36;
-    static ref OBJECT_TAG_CONTRACT_CREATE_TRANSACTION = 42;
-    static ref OBJECT_TAG_CONTRACT_CALL_TRANSACTION = 43;
-}
 
 pub enum TxType {
     SignedTx,
@@ -37,7 +33,7 @@ pub enum TxType {
 }
 
 impl TxType {
-    pub fn from_tag(s: &u32) -> Option<TxType> {
+    pub fn from_tag(s: u32) -> Option<TxType> {
         match s {
             OBJECT_TAG_CONTRACT_CALL_TRANSACTION => Some(TxType::ContractCall),
             OBJECT_TAG_CONTRACT_CREATE_TRANSACTION => Some(TxType::ContractCreate),
@@ -104,8 +100,7 @@ fn parse_tx(stx: &RlpVal, tx_type: TxType) -> Value {
 
 pub fn signed_tx(stx: &RlpVal) -> Value
 {
-    let tx_ = rlp::Rlp::new(stx.at(3).unwrap().data().unwrap());
-    let tx_rlp_val = RlpVal::from_rlp(&tx_).unwrap();
+    let tx_rlp_val = stx.at(3).unwrap().data().unwrap();
 
     let tx_json = process_tx(&tx_rlp_val);
     json!(

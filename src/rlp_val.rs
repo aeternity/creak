@@ -276,6 +276,14 @@ fn to_base58check(data: &[u8]) -> String {
     payload.to_base58()
 }
 
+fn to_base64check (data: &[u8]) -> String {
+    let mut payload = data.to_vec();
+    let mut checksum = double_sha256(&payload);
+    payload.append(&mut checksum[..4].to_vec());
+    String::from("")
+//    payload.to_base64() TODO
+}
+
 /*
  * taken from https://github.com/dotcypress/base58check
  * reproduced with kind permission of the author
@@ -289,4 +297,15 @@ fn double_sha256(payload: &[u8]) -> Vec<u8> {
     hasher.input(&hash);
     hasher.result(&mut hash);
     hash.to_vec()
+}
+
+pub fn encode(data: &[u8], prefix: &str) -> String {
+    let base64types = ["tx", "st", "ss", "pi", "ov", "or", "cb"];
+    let mut encoded_value: String;
+    if base64types.contains(&prefix) {
+        encoded_value = to_base64check(data)
+    } else {
+        encoded_value = to_base58check(data)
+    }
+    format!("{}_{}", prefix, encoded_value)
 }
