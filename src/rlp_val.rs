@@ -80,6 +80,10 @@ impl std::clone::Clone for RlpVal {
     }
 }
 
+/*
+ * make sure our vectors are big enough for the types we're trying to
+ * get from them.
+ */
 fn ensure_vec_len(v: &mut Vec<u8>, len: usize) -> &Vec<u8>{
     loop {
         if v.len() >= len { break; }
