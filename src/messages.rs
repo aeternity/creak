@@ -100,19 +100,32 @@ Message is RLP encoded, fields:
 
 MicroBlock :: byte_array - Serialized micro block
 Light :: bool - flag if micro block is light or normal
-A normal micro block is serialized. A light micro block is serialized using aec_peer_connection:serialize_light_micro_block/1 - in effect replacing the list of serialized signed transactions with a list of transaction hashes.
+
+A normal micro block is serialized.  A light micro block is serialized
+using aec_peer_connection:serialize_light_micro_block/1 - in effect
+replacing the list of serialized signed transactions with a list of
+transaction hashes.`
+
 */
 fn handle_micro_block(msg_data: &Rlp) -> Result<(), RlpError> {
     let _version: u8 = msg_data.val_at(0)?;
     let _data = msg_data.at(1)?.data()?;
     let payload = &rlp::Rlp::new(&_data);
+    display_message(&payload);
     let _light: u8 = msg_data.val_at(2)?;
+    println!("Payload length is {}, _light is {}", payload.size(), _light);
     let mb = MicroBlockHeader::new_from_byte_array(&payload.at(2)?.data()?)?;
+    let txs = payload.at(3)?;
+    if ! _light == 0 {
+        handle_txs(&txs);
+    } else {
+        display_message(&txs).unwrap();
+    }
     println!("{}", mb.to_string()?);
     Ok(())
 }
 
-/*
+
 #[test]
 fn test_handle_micro_block() {
     let msg_data = include!("../data/micro-block.rs");
@@ -120,7 +133,7 @@ fn test_handle_micro_block() {
     handle_micro_block(&msg_data).unwrap();
     println!("Done");
 }
-*/
+
 
 /*
  *
@@ -179,7 +192,7 @@ pub fn handle_txs(msg_data: &Rlp) -> Result<(), RlpError> {
     Ok(())
 }
 
-#[test]
+//#[test]
 fn test_handle_txs() {
     let txs = include!("../data/transactions.rs");
     for tx in txs {
@@ -241,6 +254,7 @@ pub struct MicroBlockHeader {
     state_hash: [u8; 32],
     txs_hash: [u8; 32],
     time: u64,
+    has_fraud: bool,
     fraud_hash: Option<[u8; 32]>,
     signature: [u8; 64],
 }
@@ -278,6 +292,7 @@ impl MicroBlockHeader {
             state_hash: array_ref![bytes, 80, 32].clone(),
             txs_hash: array_ref![bytes, 112, 32].clone(),
             time: <&[u8]>::read_u64::<BigEndian>(&mut (&bytes[144..152]).clone())?,
+            has_fraud,
             fraud_hash: if has_fraud {
                 Some(array_ref![bytes, 152, 32].clone())
             } else {
@@ -294,7 +309,7 @@ impl MicroBlockHeader {
     pub fn to_string(&self) -> Result<String, RlpError> {
         Ok(format!(
             "version: {} flags: {:?} height: {} prev_hash: {:?} prev_key_hash: {:?} state_hash: {:?} \
-             txs_hash: {:?} time: {} fraud_hash {:?}",
+             txs_hash: {:?} time: {} has_fraud: {} fraud_hash {:?}",
             self.version,
             self.tags,
             self.height,
@@ -303,6 +318,7 @@ impl MicroBlockHeader {
             self.state_hash,
             self.txs_hash,
             self.time,
+            self.has_fraud,
             self.fraud_hash,
         ))
     }
