@@ -83,9 +83,8 @@ impl Serialize for TxType {
     }
 }
 
-fn process_tx(stx: &RlpVal) -> Value {
-    let _type = TxType::from_tag(u32::convert(&stx[0]));
-    match _type {
+pub fn process_tx(tag: u32, stx: &RlpVal) -> Value {
+    match TxType::from_tag(tag) {
         Some(txType) => parse_tx(stx, txType),
         None => panic!("Wrong Transaction type")
     }
@@ -115,8 +114,8 @@ pub fn signed_tx(stx: &RlpVal) -> ::std::result::Result<Value, RlpError>
         RlpVal::Val { data } => rlp::Rlp::new(&data),
         _ => return Err("Wrong type of RlpVal".into()),
     };
-
-    let tx_json = process_tx(&RlpVal::from_rlp(&tx_rlp_val)?);
+    let tx = RlpVal::from_rlp(&tx_rlp_val)?;
+    let tx_json = process_tx(u32::convert(&tx[0]), &tx);
     Ok(json!(
         {
             "type": TxType::Signed,
@@ -127,6 +126,7 @@ pub fn signed_tx(stx: &RlpVal) -> ::std::result::Result<Value, RlpError>
 
 pub fn spend_tx(rlp: &RlpVal) -> Value
 {
+    println!("spend_tx: {:?}", rlp);
     json!(
         {
             "fee": u64::convert(&rlp[5]),

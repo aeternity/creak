@@ -30,7 +30,7 @@ const MsgTxPoolSyncFinish: u16 = 23;
 const MsgClose: u16 = 127;
 
 use crate::rlp_val::*;
-use crate::jsonifier::spend_tx;
+use crate::jsonifier::*;
 
 fn display_message(msg_data: &Rlp) -> Result<(), RlpError> {
     println!("Starting message with {} elements:", msg_data.item_count()?);
@@ -55,11 +55,11 @@ fn display_message(msg_data: &Rlp) -> Result<(), RlpError> {
 pub fn handle_message(msg_type: u16, msg_data: &Rlp) -> Result<(), RlpError> {
     display_message(&msg_data);
     match msg_type {
-        MsgP2pResponse => handle_p2p_response(&msg_data)?,
-        MsgTxPoolSyncInit => handle_tx_pool_sync_init(&msg_data)?,
-        MsgTxs => handle_txs(&msg_data)?,
-        MsgKeyBlock => handle_key_blocks(&msg_data)?,
-        MsgMicroBlock => handle_micro_block(&msg_data)?,
+        MsgP2pResponse => handle_p2p_response(&msg_data).unwrap(),
+        MsgTxPoolSyncInit => handle_tx_pool_sync_init(&msg_data).unwrap(),
+        MsgTxs => handle_txs(&msg_data).unwrap(),
+        MsgKeyBlock => handle_key_blocks(&msg_data).unwrap(),
+        MsgMicroBlock => handle_micro_block(&msg_data).unwrap(),
         _ => (),
     }
     Ok(())
@@ -161,25 +161,20 @@ Txs:: [byte_array]
 A signed transaction is serialized as a tagged and versioned signed transaction.
 */
 pub fn handle_txs(msg_data: &Rlp) -> Result<(), RlpError> {
-    let version: u8 = msg_data.at(0)?.data()?[0];
+    println!("handle_txs, input is {:?}", msg_data);
+    let version: u8 = msg_data.at(0).unwrap().data().unwrap()[0];
     assert!(version == 1);
-    let tmp = msg_data.at(1)?; // temp variable so it doesn't go out of scope
+    let tmp = msg_data.at(1).unwrap(); // temp variable so it doesn't go out of scope
     let mut iter = tmp.iter();
-    let mut tx: rlp::Rlp;
     loop {
         let signed_tx = match iter.next() {
-            Some(x) => x,
+            Some(x) => rlp::Rlp::new(x.data()?),
             None => break,
         };
-        let tag = signed_tx.at(0)?.data()?[0];
-        assert!(tag == 11);
-        let version = signed_tx.at(1)?.data()?[0];
-        assert!(version == 1);
-        //signatures
-        let transaction = rlp::Rlp::new(signed_tx.at(3)?.data()?);
-        let tag: u8 = transaction.at(0)?.data()?[0];
-        let version: u8 = transaction.at(1)?.data()?[1];
-//        process_transaction(tag, &transaction);
+        let rlp_val = RlpVal::from_rlp(&signed_tx)?;
+        let tx = RlpVal::from_rlp(&rlp::Rlp::new(signed_tx.at(3)?.data()?))?;
+        let tag: u32 = u32::convert(&tx[0]);
+        crate::jsonifier::process_tx(tag, &tx);
     }
     Ok(())
 }
@@ -188,6 +183,7 @@ pub fn handle_txs(msg_data: &Rlp) -> Result<(), RlpError> {
 fn test_handle_txs() {
     let txs = include!("../data/transactions.rs");
     display_message(&txs);
+    handle_txs(&txs);
     let tmp = txs.at(1).unwrap();
     let mut iter = tmp.iter();
     let mut tx: rlp::Rlp;
