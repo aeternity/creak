@@ -174,7 +174,7 @@ pub fn handle_txs(msg_data: &Rlp) -> Result<(), RlpError> {
         let rlp_val = RlpVal::from_rlp(&signed_tx)?;
         let tx = RlpVal::from_rlp(&rlp::Rlp::new(signed_tx.at(3)?.data()?))?;
         let tag: u32 = u32::convert(&tx[0]);
-        crate::jsonifier::process_tx(tag, &tx);
+        println!("{}", crate::jsonifier::process_tx(tag, &tx));
     }
     Ok(())
 }
@@ -182,8 +182,11 @@ pub fn handle_txs(msg_data: &Rlp) -> Result<(), RlpError> {
 #[test]
 fn test_handle_txs() {
     let txs = include!("../data/transactions.rs");
-    display_message(&txs);
-    handle_txs(&txs);
+    for tx in txs {
+        display_message(&tx);
+        handle_txs(&tx);
+    }
+    /*
     let tmp = txs.at(1).unwrap();
     let mut iter = tmp.iter();
     let mut tx: rlp::Rlp;
@@ -211,6 +214,7 @@ fn test_handle_txs() {
         println!("json is {}", v);
         println!("signed tx is {}", crate::jsonifier::signed_tx(&rlp_val).unwrap()); // TODO
     }
+     */
 }
 
 pub fn bigend_u16(num: u16) -> Result<Vec<u8>, RlpError> {
