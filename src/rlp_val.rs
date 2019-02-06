@@ -53,6 +53,13 @@ impl RlpVal {
             Ok(  RlpVal::Val { data: r.data()?.to_vec() })
         }
     }
+
+    pub fn bytes(&self) -> Option<Vec<u8>> {
+        match self {
+            RlpVal::Val { data } => Some(data.to_vec()),
+            _ => None,
+        }
+    }
 }
 
 pub trait FromRlp {
@@ -126,7 +133,18 @@ impl FromRlp for u32 {
             _ => 0
         }
     }
- }
+}
+
+impl FromRlp for Vec<u8> {
+    fn convert(item: &RlpVal) -> Self {
+        match item {
+            RlpVal::Val { data } => {
+                data.to_vec()
+            },
+            _ => vec!()
+        }
+    }
+}
 
 impl FromRlp for u16 {
     fn convert(item: &RlpVal) -> Self {
@@ -157,7 +175,7 @@ impl FromRlp for AeIdentifier {
     fn convert(item: &RlpVal) -> Self {
         match item {
             RlpVal::Val { data } => {
-                return match AeIdentifier::from_bytes(&data.to_vec()) {
+                return match AeIdentifier::from_bytes(data[0], &data[1..].to_vec()) {
                     Some(x) => x,
                     None => AeIdentifier { id: String::from("")},
                 };
@@ -173,17 +191,24 @@ pub struct AeIdentifier {
 }
 
 impl AeIdentifier {
-    pub fn from_bytes(bytes: &Vec<u8>) -> Option<AeIdentifier>
+    pub fn from_bytes(prefix: u8, bytes: &Vec<u8>) -> Option<AeIdentifier>
     {
-        let prefix = match bytes[0] {
-            1 => "ak_",
-            2 => "nm_",
-            3 => "cm_",
-            4 => "ok",
-            5 => "ct_",
-            6 => "ch_",
+        let prefix = match prefix {
+            1   => "ak_",
+            2   => "nm_",
+            3   => "cm_",
+            4   => "ok",
+            5   => "ct_",
+            6   => "ch_",
+            255 => "th_", // transaction hash
             _ => "sg_",
         };
+        Some(AeIdentifier{ id: format!("{}{}", prefix, to_base58check(&bytes[1..])) })
+    }
+
+    pub fn transaction_identifier(bytes: &Vec<u8>) -> Option<AeIdentifier>
+    {
+        let prefix = "th_";
         Some(AeIdentifier{ id: format!("{}{}", prefix, to_base58check(&bytes[1..])) })
     }
 }
@@ -228,7 +253,7 @@ impl FromRlp for SignatureList {
                     match iter.next() {
                         Some(ele) => {
                             match ele {
-                                RlpVal::Val { data } => v.push(AeIdentifier::from_bytes(&data.to_vec()).unwrap()),
+                                RlpVal::Val { data } => v.push(AeIdentifier::from_bytes(data[0], &data[1..].to_vec()).unwrap()),
                                 _ => (),
                             }
                         },
@@ -272,18 +297,22 @@ impl Index<usize> for RlpVal {
     }
 }
 
+pub fn transaction_hash(data: &[u8]) -> String {
+    String::from("th_") + &to_base58check(data)
+}
+
 
 /* taken from https://github.com/dotcypress/base58check
  * reproduced with kind permission of the author
  */
-fn to_base58check(data: &[u8]) -> String {
+pub fn to_base58check(data: &[u8]) -> String {
     let mut payload = data.to_vec();
     let mut checksum = double_sha256(&payload);
     payload.append(&mut checksum[..4].to_vec());
     payload.to_base58()
 }
 
-fn to_base64check (data: &[u8]) -> String {
+pub fn to_base64check (data: &[u8]) -> String {
     let mut payload = data.to_vec();
     let mut checksum = double_sha256(&payload);
     payload.append(&mut checksum[..4].to_vec());

@@ -119,6 +119,16 @@ fn handle_micro_block(msg_data: &Rlp) -> Result<(), RlpError> {
     if ! _light == 0 {
         handle_txs(&txs);
     } else {
+        let _r = crate::rlp_val::RlpVal::from_rlp(&txs)?;
+        for i in 0 .. txs.item_count()? {
+            display_message(&rlp::Rlp::new(txs.at(i)?.as_raw()));
+            println!("{}", crate::rlp_val::transaction_hash(&Vec::<u8>::convert(&_r[i])));
+            let v = Vec::<u8>::convert(&_r[i]);
+            match AeIdentifier::from_bytes(255, &v) {
+                Some(x) => println!("{}", x),
+                None => continue,
+            };
+        }
         display_message(&txs).unwrap();
     }
     println!("{}", mb.to_string()?);

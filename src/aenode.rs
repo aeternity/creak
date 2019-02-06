@@ -16,7 +16,8 @@ pub struct Aenode {
 }
 
 impl Aenode {
-    pub fn new(aenode: &String) -> Result<Aenode, Box<std::error::Error>> {
+    pub fn new(aenode: &String) -> Result<Aenode, Box<std::error::Error>>
+    {
         let re = Regex::new(r"^aenode://pp_(.+)@([0-9.]+):([0-9]+)$")?;
         let captures = re.captures(aenode).unwrap();
         Ok(Aenode {
@@ -59,7 +60,8 @@ impl Aenode {
 /*
  * decode base 58, adding the version byte onto the returned value
  */
-fn decodebase58check(data: &String) -> Vec<u8> {
+fn decodebase58check(data: &String) -> Vec<u8>
+{
     let mut result = base58check::FromBase58Check::from_base58check(data.as_str()).unwrap().1;
     result.insert(0, base58check::FromBase58Check::from_base58check(data.as_str()).unwrap().0);
     result
