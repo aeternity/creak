@@ -5,7 +5,7 @@ use base58::ToBase58;
 use byteorder::*;
 use crypto::digest::Digest;
 use crypto::sha2::Sha256;
-use rlp::{Rlp, RlpStream};
+use rlp::{Rlp};
 use serde::ser::{Serialize, SerializeSeq, Serializer};
 use std::ops::{Index};
 use std::convert::From;
@@ -38,14 +38,9 @@ impl RlpVal {
             println!("is_list");
             let mut data = Vec::<RlpVal>::new();
             let mut iter = r.iter();
-            loop {
-                match iter.next() {
-                    Some(x) => {
-                        println!("adding {:?}", x);
-                        data.push(RlpVal::from_rlp(&x).unwrap());
-                    },
-                    None => break,
-                };
+            for x in iter {
+                println!("adding {:?}", x);
+                data.push(RlpVal::from_rlp(&x).unwrap());
             }
             Ok(RlpVal::List { data })
         } else {
@@ -74,7 +69,7 @@ impl Serialize for RlpVal {
         match &self {
             RlpVal::List { data } => serializer.serialize_str(&format!("{:?}", data)),
             RlpVal::Val { data } => serializer.serialize_bytes(data),
-            RlpVal::None =>  serializer.serialize_str(&format!("")),
+            RlpVal::None =>  serializer.serialize_str(&"".to_string()),
         }
     }
 }
@@ -232,11 +227,8 @@ impl Serialize for SignatureList {
     {
         let mut seq = serializer.serialize_seq(None).unwrap(); // TODO
         let mut iter = self.signatures.iter();
-        loop {
-            match iter.next() {
-                Some(x) => seq.serialize_element(x),
-                None => break,
-            };
+        for x in iter {
+            seq.serialize_element(x)?;
         }
         seq.end()
     }
@@ -289,7 +281,7 @@ impl Index<usize> for RlpVal {
     fn index(&self, index: usize) -> &RlpVal {
         match self {
             RlpVal::List { data } => &data[index],
-            RlpVal::Val { data }  => {
+            RlpVal::Val { .. }  => {
                 &RlpVal::None
             },
             _ => &RlpVal::None,
@@ -336,7 +328,7 @@ fn double_sha256(payload: &[u8]) -> Vec<u8> {
 
 pub fn encode(item: &RlpVal, prefix: &str) -> String {
     let base64types = ["tx", "st", "ss", "pi", "ov", "or", "cb"];
-    let mut encoded_value: String = match item {
+    let encoded_value: String = match item {
         RlpVal::Val { data } => {
             if base64types.contains(&prefix) {
                 to_base64check(data)

@@ -1,10 +1,7 @@
-use base58check::FromBase58Check;
 use byteorder::{BigEndian, WriteBytesExt};
 use curl::easy::Easy;
 use regex::Regex;
 use serde_json::Value;
-use simple_error::SimpleError;
-use std::fmt::{Error, Write};
 use std::net::IpAddr;
 
 type RlpError = Box<std::error::Error>;
@@ -39,8 +36,8 @@ impl Aenode {
             transfer.write_function(|data| {
                 v.extend_from_slice(data);
                 Ok(data.len())
-            });
-            transfer.perform();
+            })?;
+            transfer.perform()?;
         }
         let json: Value = serde_json::from_str(&String::from_utf8(v)?)?;
         println!("{:?}", json);
@@ -73,9 +70,9 @@ pub fn prologue(version: u64, genesis_hash: &String, network_id: &String) ->
     Result<Vec<u8>, RlpError>
 {
     let mut genesis_binary = decodebase58check(&genesis_hash);
-    let mut network_id_binary = network_id.as_bytes();
+    let network_id_binary = network_id.as_bytes();
     let mut result = vec!();
-    result.write_u64::<BigEndian>(version);
+    result.write_u64::<BigEndian>(version)?;
     result.append(&mut genesis_binary);
     result.append(&mut network_id_binary.to_vec());
     Ok(result)

@@ -1,36 +1,30 @@
 use byteorder::*;
+use crate::rlp_val::*;
 use rlp::{Rlp, RlpStream};
-
-use serde_rlp::ser::to_bytes;
 
 type RlpError = Box<std::error::Error>;
 
-use std::ops::{Index};
-use std::convert::From;
+const MSG_FRAGMENT: u16 = 0;
+const MSG_P2PRESPONSE: u16 = 100;
+const MSG_PING: u16 = 1;
+const MSG_GETHEADERBYHASH: u16 = 3;
+const MSG_GETHEADERBYHEIGHT: u16 = 15;
+const MSG_HEADER: u16 = 4;
+const MSG_GETNSUCCESSORS: u16 = 5;
+const MSG_HEADERHASHES: u16 = 6;
+const MSG_GETBLOCKTXS: u16 = 7;
+const MSG_GETGENERATION: u16 = 8;
+const MSG_TXS: u16 = 9;
+const MSG_BLOCKTXS: u16 = 13;
+const MSG_KEYBLOCK: u16 = 10;
+const MSG_MICROBLOCK: u16 = 11;
+const MSG_GENERATION: u16 = 12;
+const MSG_TXPOOLSYNCINIT: u16 = 20;
+const MSG_TXPOOLSYNCUNFOLD: u16 = 21;
+const MSG_TXPOOLSYNCGET: u16 = 22;
+const MSG_TXPOOLSYNCFINISH: u16 = 23;
+const MSG_CLOSE: u16 = 127;
 
-const MsgFragment: u16 = 0;
-const MsgP2pResponse: u16 = 100;
-const MsgPing: u16 = 1;
-const MsgGetHeaderByHash: u16 = 3;
-const MsgGetHeaderByHeight: u16 = 15;
-const MsgHeader: u16 = 4;
-const MsgGetNSuccessors: u16 = 5;
-const MsgHeaderHashes: u16 = 6;
-const MsgGetBlockTxs: u16 = 7;
-const MsgGetGeneration: u16 = 8;
-const MsgTxs: u16 = 9;
-const MsgBlockTxs: u16 = 13;
-const MsgKeyBlock: u16 = 10;
-const MsgMicroBlock: u16 = 11;
-const MsgGeneration: u16 = 12;
-const MsgTxPoolSyncInit: u16 = 20;
-const MsgTxPoolSyncUnfold: u16 = 21;
-const MsgTxPoolSyncGet: u16 = 22;
-const MsgTxPoolSyncFinish: u16 = 23;
-const MsgClose: u16 = 127;
-
-use crate::rlp_val::*;
-use crate::jsonifier::*;
 
 fn display_message(msg_data: &Rlp) -> Result<(), RlpError> {
     println!("Starting message with {} elements:", msg_data.item_count()?);
@@ -53,13 +47,13 @@ fn display_message(msg_data: &Rlp) -> Result<(), RlpError> {
 }
 
 pub fn handle_message(msg_type: u16, msg_data: &Rlp) -> Result<(), RlpError> {
-    display_message(&msg_data);
+    display_message(&msg_data)?;
     match msg_type {
-        MsgP2pResponse => handle_p2p_response(&msg_data).unwrap(),
-        MsgTxPoolSyncInit => handle_tx_pool_sync_init(&msg_data).unwrap(),
-        MsgTxs => handle_txs(&msg_data).unwrap(),
-        MsgKeyBlock => handle_key_blocks(&msg_data).unwrap(),
-        MsgMicroBlock => handle_micro_block(&msg_data).unwrap(),
+        MSG_P2PRESPONSE => handle_p2p_response(&msg_data).unwrap(),
+        MSG_TXPOOLSYNCINIT => handle_tx_pool_sync_init(&msg_data).unwrap(),
+        MSG_TXS => handle_txs(&msg_data).unwrap(),
+        MSG_KEYBLOCK => handle_key_blocks(&msg_data).unwrap(),
+        MSG_MICROBLOCK => handle_micro_block(&msg_data).unwrap(),
         _ => (),
     }
     Ok(())
@@ -84,14 +78,14 @@ fn handle_p2p_response(msg_data: &Rlp) -> Result<(), RlpError> {
         version, result, _type, reason, object
     );
     let r = rlp::Rlp::new(&object);
-    display_message(&r);
+    display_message(&r)?;
     Ok(())
 }
 
 /*
 Message has no body.
 */
-fn handle_tx_pool_sync_init(msg_data: &Rlp) -> Result<(), RlpError> {
+fn handle_tx_pool_sync_init(_msg_data: &Rlp) -> Result<(), RlpError> {
     Ok(())
 }
 
@@ -111,17 +105,16 @@ fn handle_micro_block(msg_data: &Rlp) -> Result<(), RlpError> {
     let _version: u8 = msg_data.val_at(0)?;
     let _data = msg_data.at(1)?.data()?;
     let payload = &rlp::Rlp::new(&_data);
-    display_message(&payload);
+    display_message(&payload)?;
     let _light: u8 = msg_data.val_at(2)?;
     println!("Payload length is {}, _light is {}", payload.size(), _light);
     let mb = MicroBlockHeader::new_from_byte_array(&payload.at(2)?.data()?)?;
     let txs = payload.at(3)?;
     if ! _light == 0 {
-        handle_txs(&txs);
+        handle_txs(&txs)?;
     } else {
         let _r = crate::rlp_val::RlpVal::from_rlp(&txs)?;
         for i in 0 .. txs.item_count()? {
-            display_message(&rlp::Rlp::new(txs.at(i)?.as_raw()));
             println!("{}", crate::rlp_val::transaction_hash(&Vec::<u8>::convert(&_r[i])));
             let v = Vec::<u8>::convert(&_r[i]);
             match AeIdentifier::from_bytes(255, &v) {
@@ -129,7 +122,7 @@ fn handle_micro_block(msg_data: &Rlp) -> Result<(), RlpError> {
                 None => continue,
             };
         }
-        display_message(&txs).unwrap();
+        display_message(&txs)?;
     }
     println!("{}", mb.to_string()?);
     Ok(())
@@ -169,13 +162,11 @@ fn handle_key_block(binary: &[u8]) -> Result<(), RlpError> {
     Ok(())
 }
 
-/*
 #[test]
 fn test_handle_keyblocks() {
     let msg_data = include!("../data/key-block.rs");
     handle_key_blocks(&msg_data).unwrap();
 }
-*/
 /*
 
 Message is RLP encoded, fields:
@@ -189,12 +180,8 @@ pub fn handle_txs(msg_data: &Rlp) -> Result<(), RlpError> {
     assert!(version == 1);
     let tmp = msg_data.at(1).unwrap(); // temp variable so it doesn't go out of scope
     let mut iter = tmp.iter();
-    loop {
-        let signed_tx = match iter.next() {
-            Some(x) => rlp::Rlp::new(x.data()?),
-            None => break,
-        };
-        let rlp_val = RlpVal::from_rlp(&signed_tx)?;
+    for x in iter {
+        let signed_tx = rlp::Rlp::new(x.data()?);
         let tx = RlpVal::from_rlp(&rlp::Rlp::new(signed_tx.at(3)?.data()?))?;
         let tag: u32 = u32::convert(&tx[0]);
         println!("{}", crate::jsonifier::process_tx(tag, &tx));
@@ -202,12 +189,12 @@ pub fn handle_txs(msg_data: &Rlp) -> Result<(), RlpError> {
     Ok(())
 }
 
-//#[test]
+#[test]
 fn test_handle_txs() {
     let txs = include!("../data/transactions.rs");
     for tx in txs {
-        display_message(&tx);
-        handle_txs(&tx);
+        display_message(&tx).unwrap();
+        handle_txs(&tx).unwrap();
     }
     /*
     let tmp = txs.at(1).unwrap();
@@ -249,7 +236,7 @@ pub fn bigend_u16(num: u16) -> Result<Vec<u8>, RlpError> {
 /*
  * æternity expects RLP w/ some changes from the Parity
  */
-pub fn mangle_rlp(data: &Vec<u8>) -> Vec<u8> {
+pub fn mangle_rlp(data: &[u8]) -> Vec<u8> {
     data.iter()
         .map(|x| if *x == 128 { 0 } else { *x })
         .collect()
@@ -288,10 +275,9 @@ impl MicroBlockHeader {
     fn new_from_byte_array(bytes: &[u8]) -> Result<MicroBlockHeader, RlpError> {
         println!("new mb from bytes: {:?}", bytes);
 
-        let bytes = bytes.clone();
         let flags = array_ref![bytes, 4, 1][0];
-        let micro = flags & 0b10000000u8;
-        let has_fraud = flags & 0b01000000u8 != 0;
+        let _micro = flags & 0b1000_0000u8;
+        let has_fraud = flags & 0b0100_0000u8 != 0;
 
         Ok(MicroBlockHeader {
             version: <&[u8]>::read_u32::<BigEndian>(&mut (&bytes[0..4]).clone())?,
@@ -441,7 +427,7 @@ impl Ping {
 
     pub fn rlp(&self) -> Result<Vec<u8>, Box<std::error::Error>> {
         let mut stream = RlpStream::new();
-        let peers: Vec<u8> = vec![];
+        let _peers: Vec<u8> = vec![];
         stream.begin_list(8).
             append(&1u16). // version
             append(&self.port).

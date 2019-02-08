@@ -1,8 +1,16 @@
 [package]
-name = "noise"
+name = "aeternity_sync"
 version = "0.1.0"
 authors = ["John Newby <john@newby.org>"]
 edition = "2018"
+
+[lib]
+name = "aeternity_sync"
+
+[[bin]]
+name = "aeternity_sync"
+path = "src/main.rs"
+
 
 [dependencies]
 arrayref = "0.3.5"
